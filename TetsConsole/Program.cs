@@ -13,7 +13,7 @@ client.DefaultRequestHeaders.Add("x-fsign", "SW9D1eZo");
 client.DefaultRequestHeaders.Add("User-Agent",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
 
-var addedDaysCount = 1;
+var addedDaysCount = 0;
 
 var upcoming = await client.GetAsync($"https://2.flashscore.ninja/2/x/feed/f_1_{addedDaysCount}_4_en_1");
 var str = await upcoming.Content.ReadAsStringAsync();
@@ -186,6 +186,22 @@ static List<MatchResult> GetMatchInfo(string input)
     return results;
 }
 
+// ----- Helpers (put inside the same class) -----
+static double SmoothedRate(int success, int total, double alpha = 1.0, double beta = 1.0)
+    => total <= 0 ? 0.5 : (success + alpha) / (total + alpha + beta);
+
+static double WeightFromSamples(int n, int cap) => Math.Min(Math.Max(n, 0), cap) / (double)cap;
+
+static double Blend(params (double p, double w)[] terms)
+{
+    double sw = terms.Sum(t => t.w);
+    if (sw <= 0) return 0.5;
+    return terms.Sum(t => t.p * t.w) / sw;
+}
+
+static string ToPct(double p) => $"{Math.Round(p * 100)}%";
+
+// ----- Main function -----
 static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> dict, DateTime date)
 {
     var html = @"<!DOCTYPE html>
@@ -199,7 +215,6 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
       background: #f4f4f4;
       padding: 30px;
     }
-
     .match-section {
       background: #fff;
       margin-bottom: 40px;
@@ -207,40 +222,28 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-
-    h2 {
-      margin-top: 0;
-    }
-
+    h2 { margin-top: 0; }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 15px;
     }
-
     th, td {
       border: 1px solid #ccc;
       text-align: center;
       padding: 8px;
       font-size: 14px;
     }
-
-    th {
-      background: #eee;
+    th { background: #eee; }
+    .pred {
+      margin-top:8px;
+      font-size:14px;
+      color:#333;
     }
-
-    .subheader {
-      background: #ddd;
-      font-weight: bold;
-    }
-
-    .h2h-table {
-      margin-top: 20px;
-    }
+    .pred small { opacity:0.7; }
   </style>
 </head>
 <body>
-
   <h1>Football Match Statistics (Last 5 Years)</h1>
   {match_section}
 </body>
@@ -250,205 +253,188 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
 
     foreach (var match in matches)
     {
-        if (match.Results.Count == 0)
-        {
+        if (match?.Results == null || match.Results.Count == 0)
             continue;
-        }
 
-        var data = @"<tr>
-          <td>{year}</td>
-          <td>{homeTeamName}</td>
-          <td>{homeTotalGames}</td>
-          <td>{homeOver0.5}</td>
-          <td>{homeOver1.5}</td>
-          <td>{homeOver2.5}</td>
-        </tr>
-        <tr>
-          <td>{year}</td>
-          <td>{awayTeamName}</td>
-          <td>{awayTotalGames}</td>
-          <td>{awayOver0.5}</td>
-          <td>{awayOver1.5}</td>
-          <td>{awayOver2.5}</td>
-        </tr>
-        <tr>  <!-- ADDED -->
-          <td>{year}</td>
-          <td>H2H Games</td>
-          <td>{h2hTotalGames}</td>
-          <td>{h2hOver0.5}</td>
-          <td>{h2hOver1.5}</td>
-          <td>{h2hOver2.5}</td>
-        </tr>";
+        // row template (includes proper <tr> for H2H)
+        var rowTpl = @"<tr>
+  <td>{year}</td>
+  <td>{homeTeamName}</td>
+  <td>{homeTotalGames}</td>
+  <td>{homeOver0.5}</td>
+  <td>{homeOver1.5}</td>
+  <td>{homeOver2.5}</td>
+</tr>
+<tr>
+  <td>{year}</td>
+  <td>{awayTeamName}</td>
+  <td>{awayTotalGames}</td>
+  <td>{awayOver0.5}</td>
+  <td>{awayOver1.5}</td>
+  <td>{awayOver2.5}</td>
+</tr>
+<tr>
+  <td>{year}</td>
+  <td>H2H Games</td>
+  <td>{h2hTotalGames}</td>
+  <td>{h2hOver0.5}</td>
+  <td>{h2hOver1.5}</td>
+  <td>{h2hOver2.5}</td>
+</tr>";
 
+        var matchSectionTpl = @"<div class=""match-section"">
+  <a href='https://www.flashscore.com/match/football/{matchId}/#/match-summary/match-summary'>
+    {homeTeamName} vs {awayTeamName}
+  </a>
+  <div><small>{kickoff}</small></div>
 
-        var matchSection = @"<div class=""match-section"">
-    <a href='https://www.flashscore.com/match/football/{matchId}/#/match-summary/match-summary'> {homeTeamName} vs {awayTeamName}</a>
+  <table>
+    <tr>
+      <th>Year</th>
+      <th>Team</th>
+      <th>Total Games</th>
+      <th>Over 0.5</th>
+      <th>Over 1.5</th>
+      <th>Over 2.5</th>
+    </tr>
+    {resultData}
+  </table>
+  {overallPredictionBlock}
+</div>";
 
-    <table>
-      <tr>
-        <th>Year</th>
-        <th>Team</th>
-        <th>Total Games</th>
-        <th>Over 0.5</th>
-        <th>Over 1.5</th>
-        <th>Over 2.5</th>
-      </tr>
-        {resultData}
-    </table>
-  </div>";
+        // Compose header text safely
+        dict.TryGetValue(match.MatchId, out var ko);
+        var kickoffTxt = ko == default ? "" : ko.ToString("yyyy-MM-dd HH:mm");
 
-        matchSection = matchSection.Replace("{homeTeamName}", match.HomeTeam)
-            .Replace("{awayTeamName}",
-                match.AwayTeam + " (" + match.MatchId + ")" + $"{dict[match.MatchId].ToString("yyyy-MM-dd HH:mm")}")
-            .Replace("{matchId}", match.MatchId);
-        ;
+        var matchSection = matchSectionTpl
+            .Replace("{homeTeamName}", match.HomeTeam)
+            .Replace("{awayTeamName}", $"{match.AwayTeam} ({match.MatchId})")
+            .Replace("{matchId}", match.MatchId)
+            .Replace("{kickoff}", kickoffTxt);
 
-        var filteredResults = match.Results.Where(x => x.Date.Year >= 2020)
+        // Yearly breakdown (2020+)
+        var filteredByYear = match.Results
+            .Where(x => x.Date.Year >= 2020)
             .GroupBy(x => x.Date.Year)
+            .OrderByDescending(g => g.Key)
             .ToList();
 
         var resultData = "";
-        foreach (var filteredResult in filteredResults)
+        foreach (var yrGroup in filteredByYear)
         {
-            var yearData = data;
+            var yearData = rowTpl.Replace("{year}", yrGroup.Key.ToString())
+                                 .Replace("{homeTeamName}", match.HomeTeam)
+                                 .Replace("{awayTeamName}", match.AwayTeam);
 
-            yearData = yearData.Replace("{year}", filteredResult.Key.ToString());
+            // totals (per side / per year)
+            int homeTotal = yrGroup.Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
+            int awayTotal = yrGroup.Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
+            int h2hTotal  = yrGroup.Count(x =>
+                               (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                               (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
 
-            yearData = yearData.Replace("{homeTeamName}", match.HomeTeam);
-            yearData = yearData.Replace("{awayTeamName}", match.AwayTeam);
+            // counts with proper integer thresholds
+            int homeO05 = yrGroup.Count(x => x.GoalsCount >= 1 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+            int homeO15 = yrGroup.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+            int homeO25 = yrGroup.Count(x => x.GoalsCount >= 3 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
 
-            var homeTotalGames = filteredResult
-                .Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
-            // FIX thresholds: use integers 1/2/3
-            var homeTeamOver05 = filteredResult
-                .Where(x => x.GoalsCount >= 1) // was 0.5
-                .Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
-            var homeTeamOver15 = filteredResult
-                .Where(x => x.GoalsCount >= 2) // was 1.5
-                .Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
-            var homeTeamOver25 = filteredResult
-                .Where(x => x.GoalsCount >= 3) // was 2.5
-                .Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
+            int awayO05 = yrGroup.Count(x => x.GoalsCount >= 1 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+            int awayO15 = yrGroup.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+            int awayO25 = yrGroup.Count(x => x.GoalsCount >= 3 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
 
-            var awayTotalGames = filteredResult
-                .Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
-            var awayTeamOver05 = filteredResult
-                .Where(x => x.GoalsCount >= 1)
-                .Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
-            var awayTeamOver15 = filteredResult
-                .Where(x => x.GoalsCount >= 2)
-                .Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
-            var awayTeamOver25 = filteredResult
-                .Where(x => x.GoalsCount >= 3)
-                .Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
+            int h2hO05 = yrGroup.Count(x => x.GoalsCount >= 1 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+            int h2hO15 = yrGroup.Count(x => x.GoalsCount >= 2 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+            int h2hO25 = yrGroup.Count(x => x.GoalsCount >= 3 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
-            var h2hTotalGames = filteredResult
-                .Count(x => (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
-                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-            var h2hOver05 = filteredResult
-                .Where(x => x.GoalsCount >= 1)
-                .Count(x => (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
-                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-            var h2hOver15 = filteredResult
-                .Where(x => x.GoalsCount >= 2)
-                .Count(x => (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
-                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-            var h2hOver25 = filteredResult
-                .Where(x => x.GoalsCount >= 3)
-                .Count(x => (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.HomeTeam) ||
-                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-
-// --- Smoothed Over0.5 (≥1 goal) rates
-            double pA = SmoothedRate(homeTeamOver05, homeTotalGames); // home team history
-            double pB = SmoothedRate(awayTeamOver05, awayTotalGames); // away team history
-            double pH = SmoothedRate(h2hOver05, h2hTotalGames); // head-to-head
-
-// --- Weights by sample sizes (caps prevent tiny samples dominating)
-// e.g., team form: cap at 40 games; H2H: cap at 10 games
-            double wA = WeightFromSamples(homeTotalGames, 40);
-            double wB = WeightFromSamples(awayTotalGames, 40);
-            double wH = WeightFromSamples(h2hTotalGames, 10);
-
-// --- Final probability as weighted blend
-            double pAnyGoal = Blend((pA, wA), (pB, wB), (pH, wH));
-
-
-            yearData = yearData.Replace("{homeTotalGames}", homeTotalGames.ToString());
-            yearData = yearData.Replace("{homeOver0.5}", homeTeamOver05.ToString());
-            yearData = yearData.Replace("{homeOver1.5}", homeTeamOver15.ToString());
-            yearData = yearData.Replace("{homeOver2.5}", homeTeamOver25.ToString());
-            yearData = yearData.Replace("{awayTotalGames}", awayTotalGames.ToString());
-            yearData = yearData.Replace("{awayOver0.5}", awayTeamOver05.ToString());
-            yearData = yearData.Replace("{awayOver1.5}", awayTeamOver15.ToString());
-            yearData = yearData.Replace("{awayOver2.5}", awayTeamOver25.ToString());
-            yearData = yearData.Replace("{h2hTotalGames}", h2hTotalGames.ToString());
-            yearData = yearData.Replace("{h2hOver0.5}", h2hOver05.ToString());
-            yearData = yearData.Replace("{h2hOver1.5}", h2hOver15.ToString());
-            yearData = yearData.Replace("{h2hOver2.5}", h2hOver25.ToString());
+            // fill table counts
+            yearData = yearData.Replace("{homeTotalGames}", homeTotal.ToString())
+                               .Replace("{homeOver0.5}", homeO05.ToString())
+                               .Replace("{homeOver1.5}", homeO15.ToString())
+                               .Replace("{homeOver2.5}", homeO25.ToString())
+                               .Replace("{awayTotalGames}", awayTotal.ToString())
+                               .Replace("{awayOver0.5}", awayO05.ToString())
+                               .Replace("{awayOver1.5}", awayO15.ToString())
+                               .Replace("{awayOver2.5}", awayO25.ToString())
+                               .Replace("{h2hTotalGames}", h2hTotal.ToString())
+                               .Replace("{h2hOver0.5}", h2hO05.ToString())
+                               .Replace("{h2hOver1.5}", h2hO15.ToString())
+                               .Replace("{h2hOver2.5}", h2hO25.ToString());
 
             resultData += yearData;
         }
 
-        resultMatchSection += matchSection.Replace("{resultData}", resultData);
-        
-        // After the year loop, recompute on all filtered rows (since 2020)
+        // Insert yearly table rows
+        matchSection = matchSection.Replace("{resultData}", resultData);
+
+        // --- Overall (since 2020) blended predictions for ≥0.5 / ≥1.5 / ≥2.5 ---
         var allRows = match.Results.Where(x => x.Date.Year >= 2020).ToList();
 
         int A_total = allRows.Count(x => x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam);
-        int A_over  = allRows.Count(x => x.GoalsCount >= 1 && 
-                                         (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
-
         int B_total = allRows.Count(x => x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam);
-        int B_over  = allRows.Count(x => x.GoalsCount >= 1 && 
-                                         (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
-
         int H_total = allRows.Count(x => (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                                          (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-        int H_over  = allRows.Count(x => x.GoalsCount >= 1 &&
-                                         ((x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
-                                          (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
-        double pA_all = SmoothedRate(A_over, A_total);
-        double pB_all = SmoothedRate(B_over, B_total);
-        double pH_all = SmoothedRate(H_over, H_total);
+        // ≥1 goal
+        int A_o05 = allRows.Count(x => x.GoalsCount >= 1 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o05 = allRows.Count(x => x.GoalsCount >= 1 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o05 = allRows.Count(x => x.GoalsCount >= 1 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
-        double wA_all = WeightFromSamples(A_total, 40);
-        double wB_all = WeightFromSamples(B_total, 40);
-        double wH_all = WeightFromSamples(H_total, 10);
+        // ≥2 goals
+        int A_o15 = allRows.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o15 = allRows.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o15 = allRows.Count(x => x.GoalsCount >= 2 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
-        double pAny_all = Blend((pA_all, wA_all), (pB_all, wB_all), (pH_all, wH_all));
+        // ≥3 goals
+        int A_o25 = allRows.Count(x => x.GoalsCount >= 3 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o25 = allRows.Count(x => x.GoalsCount >= 3 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o25 = allRows.Count(x => x.GoalsCount >= 3 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
-// append a small note under the table
-                resultMatchSection += $@"<div style=""margin-top:8px;font-size:14px;color:#333"">
-          <strong>Prediction:</strong> ≥1 goal = {ToPct(pAny_all)} 
-          <span style=""opacity:0.7"">(A:{ToPct(pA_all)}, B:{ToPct(pB_all)}{(H_total>0?$", H2H:{ToPct(pH_all)}":"")})</span>
-        </div>";
+        // smoothed rates
+        double pA05 = SmoothedRate(A_o05, A_total), pB05 = SmoothedRate(B_o05, B_total), pH05 = SmoothedRate(H_o05, H_total);
+        double pA15 = SmoothedRate(A_o15, A_total), pB15 = SmoothedRate(B_o15, B_total), pH15 = SmoothedRate(H_o15, H_total);
+        double pA25 = SmoothedRate(A_o25, A_total), pB25 = SmoothedRate(B_o25, B_total), pH25 = SmoothedRate(H_o25, H_total);
 
+        // weights
+        double wA = WeightFromSamples(A_total, 40);
+        double wB = WeightFromSamples(B_total, 40);
+        double wH = WeightFromSamples(H_total, 10);
+
+        // blended probs
+        double pOver05_all = Blend((pA05, wA), (pB05, wB), (pH05, wH));
+        double pOver15_all = Blend((pA15, wA), (pB15, wB), (pH15, wH));
+        double pOver25_all = Blend((pA25, wA), (pB25, wB), (pH25, wH));
+
+        var overallBlock = $@"<div class=""pred"">
+  <strong>Predictions (since 2020):</strong>
+  ≥0.5 = {ToPct(pOver05_all)}, ≥1.5 = {ToPct(pOver15_all)}, ≥2.5 = {ToPct(pOver25_all)}
+  <br/><small>
+    A≥0.5:{ToPct(pA05)}, B≥0.5:{ToPct(pB05)}{(H_total>0 ? $", H2H≥0.5:{ToPct(pH05)}" : "")}
+  </small>
+</div>";
+
+        matchSection = matchSection.Replace("{overallPredictionBlock}", overallBlock);
+
+        resultMatchSection += matchSection;
     }
 
     html = html.Replace("{match_section}", resultMatchSection);
 
-    File.WriteAllText($"{date.Date.ToString("yyyy-MM-dd-")}index.html", html);
-
-    Console.WriteLine("Done");
+    var outPath = $"{date.Date:yyyy-MM-dd-}index.html";
+    File.WriteAllText(outPath, html);
+    Console.WriteLine($"Done -> {outPath}");
 }
-
-static double SmoothedRate(int success, int total, double alpha = 1.0, double beta = 1.0)
-    => total <= 0 ? 0.5 : (success + alpha) / (total + alpha + beta);
-
-// turn a sample size into a weight (cap so H2H doesn’t dominate)
-static double WeightFromSamples(int n, int cap) => Math.Min(n, cap) / (double)cap;
-
-// combine pA, pB, pH2H via weighted average (simple, stable)
-static double Blend(params (double p, double w)[] terms)
-{
-    double sw = terms.Sum(t => t.w);
-    if (sw <= 0) return 0.5;
-    return terms.Sum(t => t.p * t.w) / sw;
-}
-
-// optional: pretty percent
-static string ToPct(double p) => $"{Math.Round(p * 100)}%";
 
 
 public class MatchResult
