@@ -61,7 +61,7 @@ foreach (var matchId in matchIds)
 }
 
 // var mustBeMatches = new List<UpcomingMatch>();
-//
+//  
 // foreach (var match in matchInfos)
 // {
 //     var currentYearMatches = match.Results.Where(x => x.Date.Year == DateTime.UtcNow.Year).ToList();
@@ -77,6 +77,16 @@ foreach (var matchId in matchIds)
 // }
 //
 // await SavetMustBeMatches(mustBeMatches, dict);
+
+dict = dict.OrderBy(x => x.Value)
+    .ToDictionary(x => x.Key, x => x.Value);
+
+matchInfos = matchInfos.OrderBy(x => dict).ToList();
+
+matchInfos = matchInfos
+    .OrderBy(mi => dict[mi.MatchId])
+    .ToList();
+
 
 MakeHtml(matchInfos, dict, today);
 
