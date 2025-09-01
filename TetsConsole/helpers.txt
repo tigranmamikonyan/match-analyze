@@ -67,12 +67,18 @@
     p.style.outline = "";
   });
 
-  const THRESH = 0.88; // fuzzy threshold
+  const THRESH = 0.88;
+  const mappings = [];
+  const pickedTeamsResolved = new Set();
 
-  const mappings = [];  // for logging
-  const pickedTeamsResolved = new Set(); // final names matched on betting page
+  function buildEventUrl(node) {
+    const row = node.closest('[data-event-id]');
+    if (!row) return null;
+    const eventId = row.getAttribute('data-event-id');
+    if (!eventId) return null;
+    return `https://sports.adjarabet.am/en/Exchange?redirected=true&route=%2Fsport%2F1%2Fevent%2F${eventId}`;
+  }
 
-  // Highlight matches
   document.querySelectorAll('p[data-auto="runner_name"]').forEach(p => {
     const raw = p.textContent.trim();
     const betNorm = normalize(raw);
@@ -81,7 +87,6 @@
     let srcNorm = betNorm;
 
     if (!matched) {
-      // fuzzy: find best normalized source candidate
       let best = { score: 0, cand: null };
       for (const n of srcNormSet) {
         const s = diceSim(betNorm, n);
@@ -94,18 +99,30 @@
     }
 
     if (matched) {
-      // highlight
       p.style.backgroundColor = "yellow";
       p.style.fontWeight = "bold";
       p.style.padding = "2px 4px";
       p.style.borderRadius = "4px";
+      p.style.cursor = "pointer";
+      p.title = "Open event in new tab";
+
+      const url = buildEventUrl(p);
+      if (url) {
+        p.onclick = ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          window.open(url, "_blank", "noopener");
+        };
+      }
+
       pickedTeamsResolved.add(raw);
 
       mappings.push({
         bettingName: raw,
         bettingNorm: betNorm,
         matchedTo: [...(srcOriginalByNorm[srcNorm] || [srcNorm])].join(" | "),
-        sourceNorm: srcNorm
+        sourceNorm: srcNorm,
+        openUrl: url || "(not found)"
       });
     }
   });
