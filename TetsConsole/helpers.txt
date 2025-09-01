@@ -1,0 +1,150 @@
+(function () {
+  console.clear();
+
+  // === 1) Put the teams you extracted from Flashscore here ===
+  const sourceTeams = ["Herediano","Liberia","Seattle Sounders","Inter Miami","Houston Dynamo 2","St. Louis City 2","Minnesota 2","Town FC","Racing Club","Union de Santa Fe","Pachuca W","Club America W","Motagua","Real Espana","Real Monarchs","Tacoma Defiance","Ventura County","North Texas","Los Angeles FC","San Diego FC","Club Tijuana","Necaxa","Paro","Southern City","Okzhetpes W","Yelimay Semey W","Changnyeong W","Hwacheon W","Atyrau W","Kairat W","Malaysia","Iran","Crewe U21","Watford U21","Belenense U20","Trabalhista U20","Tuna Luso U20","Boca Juniors U20","Sheffield Wed U21","Colchester U21","KF Llapi","Drita","Zrinjski","Radnik Bijeljina","Hapoel Afula","H. Ironi Rishon","Maccabi Jaffa","Hap. Ramat Gan","Nof Hagalil","Kiryat Yam","Molde 2","Kristiansund 2","Skedsmo","Ham-Kam 2","Stromsgodset 2","Kongsvinger 2","Viking 2","Staal Jorpeland","Lokomotiv Oslo","Fredrikstad 2","RFS 2","Marupe","Koln II","Wuppertal","Sandefjord 2","Valerenga 2","Djerv 1919","Sandnes Ulf 2","Madla IL","Haugesund 2","Oppsal","Odd 2","Pors 2","Sarpsborg 08 2","Hammarby TFF","Assyriska FF","Jonkoping","IFK Skovde","Killas W","Defensores W","Al-Gharafa","Al-Sadd","Al Markhiya","Muaither SC","Huesca","Eibar","Villarreal B","Alcorcon","Pirata","AD Cantolao","Abbey Hulton","Sutton Coldfield","Deportivo Shalon","Libertad FC","Cliftonville W","Lisburn Ladies W","Gimnasia L.P.","Atl. Tucuman"];
+
+  // === 2) Optional: manual aliases for tricky cases ===
+  // left: normalized source name -> normalized target name (bet site)
+  const MANUAL_ALIASES = {
+    // example: "deportivo" -> "deportivo la coruna" (if needed)
+  };
+
+  // --- helpers ---
+  const STOPWORDS = /\b(fc|cf|sc|sd|cd|ac|afc|bk|fk|club|deportivo|atletico|athletic)\b/gi;
+  const SUFFIXES  = /\b(u\d{1,2}|ii|b|reserves|women)\b/gi;   // U21/U23, II, B, etc.
+
+  function normalize(s) {
+    return (s || "")
+      .normalize("NFD").replace(/\p{Diacritic}/gu, "") // remove accents
+      .toLowerCase()
+      .replace(/[().]/g, " ")          // punctuation to space
+      .replace(SUFFIXES, " ")          // remove youth/secondary markers
+      .replace(/\(w\)/g, " ")          // (W)
+      .replace(STOPWORDS, " ")         // remove ornaments
+      .replace(/\s+/g, " ")            // squeeze spaces
+      .trim();
+  }
+
+  // Dice (bigram) similarity: quick & robust for short names
+  function diceSim(a, b) {
+    a = a.replace(/\s+/g, ""); b = b.replace(/\s+/g, "");
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const bigrams = s => {
+      const arr = [];
+      for (let i = 0; i < s.length - 1; i++) arr.push(s.slice(i, i + 2));
+      return arr;
+    };
+    const A = bigrams(a), B = bigrams(b);
+    const setB = new Map();
+    B.forEach(bg => setB.set(bg, (setB.get(bg) || 0) + 1));
+    let inter = 0;
+    A.forEach(bg => {
+      const cnt = setB.get(bg);
+      if (cnt) { inter++; setB.set(bg, cnt - 1); }
+    });
+    return (2 * inter) / (A.length + B.length);
+  }
+
+  // Build normalized set from source + aliases
+  const srcNormSet = new Set();
+  const srcOriginalByNorm = {};
+  sourceTeams.forEach(t => {
+    let n = normalize(t);
+    if (MANUAL_ALIASES[n]) n = MANUAL_ALIASES[n];
+    srcNormSet.add(n);
+    (srcOriginalByNorm[n] ||= new Set()).add(t);
+  });
+
+  // Reset any previous styling
+  document.querySelectorAll('p[data-auto="runner_name"]').forEach(p => {
+    p.style.backgroundColor = "";
+    p.style.fontWeight = "";
+    p.style.padding = "";
+    p.style.borderRadius = "";
+    p.style.color = "";
+    p.style.outline = "";
+  });
+
+  const THRESH = 0.88; // fuzzy threshold
+
+  const mappings = [];  // for logging
+  const pickedTeamsResolved = new Set(); // final names matched on betting page
+
+  // Highlight matches
+  document.querySelectorAll('p[data-auto="runner_name"]').forEach(p => {
+    const raw = p.textContent.trim();
+    const betNorm = normalize(raw);
+
+    let matched = srcNormSet.has(betNorm);
+    let srcNorm = betNorm;
+
+    if (!matched) {
+      // fuzzy: find best normalized source candidate
+      let best = { score: 0, cand: null };
+      for (const n of srcNormSet) {
+        const s = diceSim(betNorm, n);
+        if (s > best.score) best = { score: s, cand: n };
+      }
+      if (best.score >= THRESH) {
+        matched = true;
+        srcNorm = best.cand;
+      }
+    }
+
+    if (matched) {
+      // highlight
+      p.style.backgroundColor = "yellow";
+      p.style.fontWeight = "bold";
+      p.style.padding = "2px 4px";
+      p.style.borderRadius = "4px";
+      pickedTeamsResolved.add(raw);
+
+      mappings.push({
+        bettingName: raw,
+        bettingNorm: betNorm,
+        matchedTo: [...(srcOriginalByNorm[srcNorm] || [srcNorm])].join(" | "),
+        sourceNorm: srcNorm
+      });
+    }
+  });
+
+  console.table(mappings);
+  console.log("✅ Final matched betting-page names:", [...pickedTeamsResolved]);
+  console.log("✅ Normalized keys used:", [...srcNormSet]);
+})();
+
+
+---------------------------------------------------
+
+
+(function () {
+  console.clear();
+
+  const pickedTeams = [];
+
+  document.querySelectorAll(".match-section").forEach(section => {
+    const pred = section.querySelector(".pred");
+    if (!pred) return;
+
+    const match = pred.innerText.match(/≥0\.5\s*=\s*(\d+)%/);
+    if (match) {
+      const value = parseInt(match[1], 10);
+      if (value > 90) {
+        // Get the text inside <a>, e.g. "Al Markhiya vs Muaither SC (plKIqaWF)"
+        const a = section.querySelector("a");
+        if (a) {
+          // Extract team names before the "("
+          const teamsText = a.textContent.split("(")[0].trim();
+          // Split by " vs " to get both teams
+          const teams = teamsText.split(" vs ").map(t => t.trim());
+          pickedTeams.push(...teams);
+        }
+      }
+    }
+  });
+
+  console.log("✅ Picked teams:", pickedTeams);
+  console.log(JSON.stringify(pickedTeams)); // Easy copy-paste as JSON array
+})();
