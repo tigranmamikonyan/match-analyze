@@ -49,7 +49,7 @@ foreach (var matchId in matchIds)
     var homeTeamName = content.Split("Last matches: ")[1].Split('¬')[0];
     var awayTeamName = content.Split("Last matches: ")[2].Split('¬')[0];
 
-    var results = GetMatchInfo(content);
+    var results = await GetMatchInfo(content, client);
 
     matchInfos.Add(new UpcomingMatch
     {
@@ -162,10 +162,27 @@ static async Task UpdatePendingMatches()
     }
 }
 
-static List<MatchResult> GetMatchInfo(string input)
+static int ParseFirstHalfGoals(string raw)
+{
+    // Looks for the "1st Half" block and pulls IG (home) and IH (away)
+    var m = Regex.Match(
+        raw,
+        @"AC÷1st Half[^¬]*¬IG÷(?<home>\d+)¬IH÷(?<away>\d+)",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+    if (!m.Success)
+        return 0; // or throw, depending on your preference
+
+    int home = int.Parse(m.Groups["home"].Value);
+    int away = int.Parse(m.Groups["away"].Value);
+    return home + away;
+}
+
+
+static async Task<List<MatchResult>> GetMatchInfo(string input, HttpClient client)
 {
     var pattern =
-        @"KC÷(?<timestamp>\d+).*?KJ÷\*?(?<team1>[^¬]+)¬FH÷(?<team1Name>[^¬]+).*?KK÷\*?(?<team2>[^¬]+)¬FK÷(?<team2Name>[^¬]+).*?KL÷(?<score>\d+:\d+)";
+        @"KC÷(?<timestamp>\d+).*?KP÷(?<matchId>[^¬]+).*?KJ÷\*?(?<team1>[^¬]+)¬FH÷(?<team1Name>[^¬]+).*?KK÷\*?(?<team2>[^¬]+)¬FK÷(?<team2Name>[^¬]+).*?KL÷(?<score>\d+:\d+)";
     var matches = Regex.Matches(input, pattern, RegexOptions.Singleline);
 
     var results = new List<MatchResult>();
@@ -175,13 +192,24 @@ static List<MatchResult> GetMatchInfo(string input)
         var timestamp = long.Parse(match.Groups["timestamp"].Value);
         var date = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime.ToString("yyyy-MM-dd HH:mm");
 
+        var matchId = match.Groups["matchId"].Value;
+
+        Console.WriteLine(matchId);
+        
+        var response = await client.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{matchId}");
+        var content = await response.Content.ReadAsStringAsync();
+        
+        var firstHalfGoals = ParseFirstHalfGoals(content);
+        
         results.Add(new MatchResult
         {
+            MatchId = matchId,
             Date = DateTime.Parse(date),
             HomeTeam = match.Groups["team1Name"].Value.Trim(),
             AwayTeam = match.Groups["team2Name"].Value.Trim(),
             Score = match.Groups["score"].Value,
-            GoalsCount = match.Groups["score"].Value.Split(':').Sum(x => int.Parse(x))
+            GoalsCount = match.Groups["score"].Value.Split(':').Sum(x => int.Parse(x)),
+            FirstHalfGoals = firstHalfGoals
         });
     }
 
@@ -190,11 +218,12 @@ static List<MatchResult> GetMatchInfo(string input)
     // Print the results
     foreach (var result in results)
     {
-        Console.WriteLine($"{result.Date}: {result.HomeTeam} vs {result.AwayTeam} => {result.Score}");
+        Console.WriteLine($"{result.MatchId} | {result.Date}: {result.HomeTeam} vs {result.AwayTeam} => {result.Score}");
     }
 
     return results;
 }
+
 
 // ----- Helpers (put inside the same class) -----
 static double SmoothedRate(int success, int total, double alpha = 1.0, double beta = 1.0)
@@ -343,8 +372,8 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
             int h2hTotal  = yrGroup.Count(x =>
                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam));
-
-            // counts with proper integer thresholds
+            
+            // counts with proper integer thresholdsk
             int homeO05 = yrGroup.Count(x => x.GoalsCount >= 1 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
             int homeO15 = yrGroup.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
             int homeO25 = yrGroup.Count(x => x.GoalsCount >= 3 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
@@ -460,7 +489,9 @@ public class MatchResult
     public string HomeTeam { get; set; }
     public string AwayTeam { get; set; }
     public string Score { get; set; }
+    public string MatchId { get; set; }
     public int GoalsCount { get; set; }
+    public int FirstHalfGoals { get; set; }
 }
 
 public class UpcomingMatch
