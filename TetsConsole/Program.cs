@@ -260,6 +260,7 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
 </html>";
 
     var resultMatchSection = "";
+    var resultMatchSectionOver90 = "";
 
     foreach (var match in matches)
     {
@@ -435,14 +436,20 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
 </div>";
 
         matchSection = matchSection.Replace("{overallPredictionBlock}", overallBlock);
+        
+        if (pOver05_all > 0.90)
+        {
+            resultMatchSectionOver90 += matchSection;
+        }
 
         resultMatchSection += matchSection;
     }
 
-    html = html.Replace("{match_section}", resultMatchSection);
 
     var outPath = $"{date.Date:yyyy-MM-dd-}index.html";
-    File.WriteAllText(outPath, html);
+    var outPathOver90 = $"{date.Date:yyyy-MM-dd-}index-only-over.html";
+    File.WriteAllText(outPath, html.Replace("{match_section}", resultMatchSection));
+    File.WriteAllText(outPathOver90, html.Replace("{match_section}", resultMatchSectionOver90));
     Console.WriteLine($"Done -> {outPath}");
 }
 
