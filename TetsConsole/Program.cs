@@ -13,7 +13,7 @@ client.DefaultRequestHeaders.Add("x-fsign", "SW9D1eZo");
 client.DefaultRequestHeaders.Add("User-Agent",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
 
-var addedDaysCount = 0;
+var addedDaysCount = 1;
 
 var upcoming = await client.GetAsync($"https://2.flashscore.ninja/2/x/feed/f_1_{addedDaysCount}_4_en_1");
 var str = await upcoming.Content.ReadAsStringAsync();
@@ -297,13 +297,17 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
             continue;
 
         // row template (includes proper <tr> for H2H)
-        var rowTpl = @"<tr>
+        var rowTpl = @"
+<tr>
   <td>{year}</td>
   <td>{homeTeamName}</td>
   <td>{homeTotalGames}</td>
   <td>{homeOver0.5}</td>
   <td>{homeOver1.5}</td>
   <td>{homeOver2.5}</td>
+  <td>{homeOverFirstHalf0.5}</td>
+  <td>{homeOverFirstHalf1.5}</td>
+  <td>{homeOverFirstHalf2.5}</td>
 </tr>
 <tr>
   <td>{year}</td>
@@ -312,6 +316,9 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
   <td>{awayOver0.5}</td>
   <td>{awayOver1.5}</td>
   <td>{awayOver2.5}</td>
+  <td>{awayOverFirstHalf0.5}</td>
+  <td>{awayOverFirstHalf1.5}</td>
+  <td>{awayOverFirstHalf2.5}</td>
 </tr>
 <tr>
   <td>{year}</td>
@@ -320,7 +327,11 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
   <td>{h2hOver0.5}</td>
   <td>{h2hOver1.5}</td>
   <td>{h2hOver2.5}</td>
-</tr>";
+  <td>{h2hOverFirstHalf0.5}</td>
+  <td>{h2hOverFirstHalf1.5}</td>
+  <td>{h2hOverFirstHalf2.5}</td>
+</tr>
+";
 
         var matchSectionTpl = @"<div class=""match-section"">
   <a href='https://www.flashscore.com/match/football/{matchId}/#/match-summary/match-summary'>
@@ -336,6 +347,9 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
       <th>Over 0.5</th>
       <th>Over 1.5</th>
       <th>Over 2.5</th>
+      <th>Over 1st Half 0.5</th>
+      <th>Over 1st Half 1.5</th>
+      <th>Over 1st Half 2.5</th>
     </tr>
     {resultData}
   </table>
@@ -391,20 +405,48 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
             int h2hO25 = yrGroup.Count(x => x.GoalsCount >= 3 && (
                                 (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                                 (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+            
+            // counts with proper integer thresholdsk
+            int homeFirstHalfO05 = yrGroup.Count(x => x.FirstHalfGoals >= 1 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+            int homeFirstHalfO15 = yrGroup.Count(x => x.FirstHalfGoals >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+            int homeFirstHalfO25 = yrGroup.Count(x => x.FirstHalfGoals >= 3 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+
+            int awayFirstHalfO05 = yrGroup.Count(x => x.FirstHalfGoals >= 1 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+            int awayFirstHalfO15 = yrGroup.Count(x => x.FirstHalfGoals >= 2 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+            int awayFirstHalfO25 = yrGroup.Count(x => x.FirstHalfGoals >= 3 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+
+            int h2hFirstHalfO05 = yrGroup.Count(x => x.FirstHalfGoals >= 1 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+            int h2hFirstHalfO15 = yrGroup.Count(x => x.FirstHalfGoals >= 2 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+            int h2hFirstHalfO25 = yrGroup.Count(x => x.FirstHalfGoals >= 3 && (
+                                (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                                (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
             // fill table counts
             yearData = yearData.Replace("{homeTotalGames}", homeTotal.ToString())
+                               .Replace("{h2hTotalGames}", h2hTotal.ToString())
+                               .Replace("{awayTotalGames}", awayTotal.ToString())
                                .Replace("{homeOver0.5}", homeO05.ToString())
                                .Replace("{homeOver1.5}", homeO15.ToString())
                                .Replace("{homeOver2.5}", homeO25.ToString())
-                               .Replace("{awayTotalGames}", awayTotal.ToString())
                                .Replace("{awayOver0.5}", awayO05.ToString())
                                .Replace("{awayOver1.5}", awayO15.ToString())
                                .Replace("{awayOver2.5}", awayO25.ToString())
-                               .Replace("{h2hTotalGames}", h2hTotal.ToString())
                                .Replace("{h2hOver0.5}", h2hO05.ToString())
                                .Replace("{h2hOver1.5}", h2hO15.ToString())
-                               .Replace("{h2hOver2.5}", h2hO25.ToString());
+                               .Replace("{h2hOver2.5}", h2hO25.ToString())
+                               .Replace("{homeOverFirstHalf0.5}", homeFirstHalfO05.ToString())
+                               .Replace("{homeOverFirstHalf1.5}", homeFirstHalfO15.ToString())
+                               .Replace("{homeOverFirstHalf2.5}", homeFirstHalfO25.ToString())
+                               .Replace("{awayOverFirstHalf0.5}", awayFirstHalfO05.ToString())
+                               .Replace("{awayOverFirstHalf1.5}", awayFirstHalfO15.ToString())
+                               .Replace("{awayOverFirstHalf2.5}", awayFirstHalfO25.ToString())
+                               .Replace("{h2hOverFirstHalf0.5}", h2hFirstHalfO05.ToString())
+                               .Replace("{h2hOverFirstHalf1.5}", h2hFirstHalfO15.ToString())
+                               .Replace("{h2hOverFirstHalf2.5}", h2hFirstHalfO25.ToString());
 
             resultData += yearData;
         }
@@ -426,11 +468,24 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
         int H_o05 = allRows.Count(x => x.GoalsCount >= 1 && (
                             (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                             (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+        
+        int A_o_First_05 = allRows.Count(x => x.FirstHalfGoals >= 1 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o_First_05 = allRows.Count(x => x.FirstHalfGoals >= 1 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o_First_05 = allRows.Count(x => x.FirstHalfGoals >= 1 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
         // ≥2 goals
         int A_o15 = allRows.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
         int B_o15 = allRows.Count(x => x.GoalsCount >= 2 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
         int H_o15 = allRows.Count(x => x.GoalsCount >= 2 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+
+        // ≥2 goals
+        int A_o_First_15 = allRows.Count(x => x.FirstHalfGoals >= 2 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o_First_15 = allRows.Count(x => x.FirstHalfGoals >= 2 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o_First_15 = allRows.Count(x => x.FirstHalfGoals >= 2 && (
                             (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                             (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
@@ -441,10 +496,21 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
                             (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
                             (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
 
+        // ≥3 goals
+        int A_o_First_25 = allRows.Count(x => x.FirstHalfGoals >= 3 && (x.HomeTeam == match.HomeTeam || x.AwayTeam == match.HomeTeam));
+        int B_o_First_25 = allRows.Count(x => x.FirstHalfGoals >= 3 && (x.HomeTeam == match.AwayTeam || x.AwayTeam == match.AwayTeam));
+        int H_o_First_25 = allRows.Count(x => x.FirstHalfGoals >= 3 && (
+                            (x.HomeTeam == match.HomeTeam && x.AwayTeam == match.AwayTeam) ||
+                            (x.HomeTeam == match.AwayTeam && x.AwayTeam == match.HomeTeam)));
+
         // smoothed rates
         double pA05 = SmoothedRate(A_o05, A_total), pB05 = SmoothedRate(B_o05, B_total), pH05 = SmoothedRate(H_o05, H_total);
         double pA15 = SmoothedRate(A_o15, A_total), pB15 = SmoothedRate(B_o15, B_total), pH15 = SmoothedRate(H_o15, H_total);
         double pA25 = SmoothedRate(A_o25, A_total), pB25 = SmoothedRate(B_o25, B_total), pH25 = SmoothedRate(H_o25, H_total);
+        // smoothed rates
+        double pAFirstTime05 = SmoothedRate(A_o_First_05, A_total), pBFirstTime05 = SmoothedRate(B_o_First_05, B_total), pHFirstTime05 = SmoothedRate(H_o_First_05, H_total);
+        double pAFirstTime15 = SmoothedRate(A_o_First_15, A_total), pBFirstTime15 = SmoothedRate(B_o_First_15, B_total), pHFirstTime15 = SmoothedRate(H_o_First_15, H_total);
+        double pAFirstTime25 = SmoothedRate(A_o_First_25, A_total), pBFirstTime25 = SmoothedRate(B_o_First_25, B_total), pHFirstTime25 = SmoothedRate(H_o_First_25, H_total);
 
         // weights
         double wA = WeightFromSamples(A_total, 40);
@@ -456,11 +522,22 @@ static void MakeHtml(List<UpcomingMatch> matches, Dictionary<string, DateTime> d
         double pOver15_all = Blend((pA15, wA), (pB15, wB), (pH15, wH));
         double pOver25_all = Blend((pA25, wA), (pB25, wB), (pH25, wH));
 
+        // blended probs
+        double pOver05_First_all = Blend((pAFirstTime05, wA), (pBFirstTime05, wB), (pHFirstTime05, wH));
+        double pOver15_First_all = Blend((pAFirstTime15, wA), (pBFirstTime15, wB), (pHFirstTime15, wH));
+        double pOver25_First_all = Blend((pAFirstTime25, wA), (pBFirstTime25, wB), (pHFirstTime25, wH));
+
         var overallBlock = $@"<div class=""pred"">
   <strong>Predictions (since 2020):</strong>
   ≥0.5 = {ToPct(pOver05_all)}, ≥1.5 = {ToPct(pOver15_all)}, ≥2.5 = {ToPct(pOver25_all)}
   <br/><small>
     A≥0.5:{ToPct(pA05)}, B≥0.5:{ToPct(pB05)}{(H_total>0 ? $", H2H≥0.5:{ToPct(pH05)}" : "")}
+  </small>
+</div><div class=""pred"">
+  <strong>Predictions First Time (since 2020):</strong>
+  ≥0.5 = {ToPct(pOver05_First_all)}, ≥1.5 = {ToPct(pOver15_First_all)}, ≥2.5 = {ToPct(pOver25_First_all)}
+  <br/><small>
+    A≥0.5:{ToPct(pAFirstTime05)}, B≥0.5:{ToPct(pBFirstTime05)}{(H_total>0 ? $", H2H≥0.5:{ToPct(pHFirstTime05)}" : "")}
   </small>
 </div>";
 
