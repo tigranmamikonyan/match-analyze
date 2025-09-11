@@ -182,7 +182,12 @@ static int ParseFirstHalfGoals(string raw)
 static async Task<List<MatchResult>> GetMatchInfo(string input, HttpClient client)
 {
     var pattern =
-        @"KC÷(?<timestamp>\d+).*?KP÷(?<matchId>[^¬]+).*?KJ÷\*?(?<team1>[^¬]+)¬FH÷(?<team1Name>[^¬]+).*?KK÷\*?(?<team2>[^¬]+)¬FK÷(?<team2Name>[^¬]+).*?KL÷(?<score>\d+:\d+)";
+        @"KC÷(?<timestamp>\d+)¬" +
+        @"(?:[^¬]*¬)*?KP÷(?<matchId>[^¬]+)¬" +
+        @"(?:[^¬]*¬)*?KJ÷\*?(?<team1>[^¬]+)¬(?:[^¬]*¬)*?FH÷(?<team1Name>[^¬]+)¬" +
+        @"(?:[^¬]*¬)*?KK÷\*?(?<team2>[^¬]+)¬(?:[^¬]*¬)*?FK÷(?<team2Name>[^¬]+)¬" +
+        @"(?:[^¬]*¬)*?KL÷(?<score>\d+:\d+)";
+
     var matches = Regex.Matches(input, pattern, RegexOptions.Singleline);
 
     var results = new List<MatchResult>();
