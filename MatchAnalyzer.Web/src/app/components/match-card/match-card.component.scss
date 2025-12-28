@@ -1,0 +1,203 @@
+.match-card {
+  background: rgba(255, 255, 255, 0.05); // Glass effect base
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+
+  &.expanded {
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1rem;
+
+    .status {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+  }
+
+  .teams-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem; // Reduced margin since analysis might follow
+
+    .team {
+      flex: 1;
+      text-align: center;
+
+      .name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-top: 0.5rem;
+      }
+    }
+
+    .score-board {
+      flex: 0 0 100px;
+      text-align: center;
+
+      .score {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+      }
+
+      .vs {
+        font-size: 1.5rem;
+        font-weight: 700;
+        opacity: 0.5;
+      }
+
+      .goals-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 8px;
+
+        .pill {
+          font-size: 0.7rem;
+          background: rgba(255, 255, 255, 0.1);
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+      }
+    }
+  }
+
+  .analysis-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    animation: fadeIn 0.3s ease;
+
+    .loading-state {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 1rem;
+    }
+
+    .stats-table-wrapper {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .stats-table {
+      width: 100%;
+      min-width: 600px; // Ensure it doesn't squish too much
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      // margin-bottom removed as wrapper handles it
+
+      th {
+        text-align: center;
+        padding: 0.8rem 0.5rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 500;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      td {
+        text-align: center;
+        padding: 0.6rem 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.8);
+
+        &.high-prob {
+          color: #34d399; // Green-400
+          font-weight: 700;
+          background: rgba(16, 185, 129, 0.1);
+          border-radius: 4px;
+        }
+      }
+
+      tr.highlight {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+    }
+
+    .predictions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+
+      .pred-box {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+
+        .label {
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: rgba(255, 255, 255, 0.5);
+          margin-bottom: 0.5rem;
+        }
+
+        .value {
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: #a5b4fc; // Indigo-300
+          line-height: 1.4;
+        }
+      }
+    }
+
+    .legend {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      .indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #34d399;
+        display: inline-block;
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,100 @@
+<div class="dashboard-container">
+    <div class="toolbar">
+        <h1 class="logo">Match<span class="highlight">Analyzer</span></h1>
+
+        <div class="controls">
+            <button class="btn-icon" (click)="toggleFilters()" title="Toggle Filters">
+                <i class="icon-filter"></i> Filters
+            </button>
+            <button class="btn-sync" (click)="sync()" [disabled]="isSyncing">
+                {{ isSyncing ? 'Syncing...' : 'Sync Matches' }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-panel" *ngIf="isFiltersVisible">
+
+        <!-- Conditions -->
+        <div class="conditions-group">
+            <div class="cond-row" *ngFor="let cond of filter.conditions; let i = index">
+                <label class="checkbox-label">
+                    <input type="checkbox" [(ngModel)]="cond.enabled"> Use
+                </label>
+
+                <div class="input-group">
+                    <span class="label">Type</span>
+                    <select [(ngModel)]="cond.type" [disabled]="!cond.enabled">
+                        <option value="over">Over</option>
+                        <option value="under">Under</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <span class="label">Threshold</span>
+                    <select [(ngModel)]="cond.threshold" [disabled]="!cond.enabled">
+                        <option value="o05">0.5</option>
+                        <option value="o15">1.5</option>
+                        <option value="o25">2.5</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <span class="label">Half</span>
+                    <select [(ngModel)]="cond.half" [disabled]="!cond.enabled">
+                        <option value="full">Full</option>
+                        <option value="fh">1st</option>
+                        <option value="sh">2nd</option>
+                    </select>
+                </div>
+
+                <div class="input-group small">
+                    <span class="label">Min %</span>
+                    <input type="number" [(ngModel)]="cond.minPercent" min="0" max="100" [disabled]="!cond.enabled">
+                </div>
+
+                <div class="input-group small">
+                    <span class="label">Max %</span>
+                    <input type="number" [(ngModel)]="cond.maxPercent" min="0" max="100" [disabled]="!cond.enabled">
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Filters -->
+        <div class="global-filters">
+            <div class="input-group wide">
+                <span class="label">Team Search</span>
+                <input type="text" [(ngModel)]="filter.team" placeholder="Team name..." (keyup.enter)="loadMatches()">
+            </div>
+
+            <div class="input-group">
+                <span class="label">From</span>
+                <input type="date" [(ngModel)]="filter.from" class="date-picker">
+            </div>
+
+            <div class="input-group">
+                <span class="label">To</span>
+                <input type="date" [(ngModel)]="filter.to" class="date-picker">
+            </div>
+
+            <button class="btn-search" (click)="loadMatches()">Search Matches</button>
+        </div>
+
+        <div class="count-display">
+            {{ matches.length }} matches found
+        </div>
+    </div>
+
+
+    <div class="grid" *ngIf="!isLoading && matches.length > 0">
+        <app-match-card *ngFor="let match of matches" [match]="match"></app-match-card>
+    </div>
+
+    <div class="loading" *ngIf="isLoading">
+        Loading matches...
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && matches.length === 0">
+        No matches found. Select a date or change filters.
+    </div>
+</div>

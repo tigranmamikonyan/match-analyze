@@ -1,0 +1,89 @@
+<div class="match-card" [class.expanded]="isExpanded">
+  <div class="card-header">
+    <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
+    <span class="status" *ngIf="match.isParsed">Parsed</span>
+  </div>
+
+  <div class="teams-container" (click)="toggleAnalysis()">
+    <div class="team home">
+      <div class="name">{{ match.homeTeam }}</div>
+    </div>
+
+    <div class="score-board">
+      <div class="score" *ngIf="match.score; else pending">
+        {{ match.score }}
+      </div>
+      <ng-template #pending>
+        <div class="vs">VS</div>
+      </ng-template>
+      <div class="goals-info" *ngIf="match.goalsCount !== undefined">
+        <span class="pill" title="Total Goals">Total: {{ match.goalsCount }}</span>
+        <span class="pill" title="1st Half Goals">1st Half: {{ match.firstHalfGoals ?? 0 }}</span>
+      </div>
+    </div>
+
+    <div class="team away">
+      <div class="name">{{ match.awayTeam }}</div>
+    </div>
+  </div>
+
+  <!-- Analysis Section -->
+  <div class="analysis-section" *ngIf="isExpanded">
+    <div class="loading-state" *ngIf="isLoadingAnalysis">
+      Loading stats...
+    </div>
+
+    <div class="stats-content" *ngIf="analysis">
+      <div class="stats-table-wrapper">
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Team</th>
+              <th>G</th>
+              <th>>0.5</th>
+              <th>>1.5</th>
+              <th>>2.5</th>
+              <th>FH >0.5</th>
+              <th>FH >1.5</th>
+              <th>FH >2.5</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of analysis.stats" [class.highlight]="row.year === 2025">
+              <td>{{ row.year }}</td>
+              <td>{{ row.team }}</td>
+              <td>{{ row.totalGames }}</td>
+              <td [class.high-prob]="(row.over05 / row.totalGames) >= 0.9">{{ row.over05 }}</td>
+              <td [class.high-prob]="(row.over15 / row.totalGames) >= 0.8">{{ row.over15 }}</td>
+              <td [class.high-prob]="(row.over25 / row.totalGames) >= 0.7">{{ row.over25 }}</td>
+              <td [class.high-prob]="(row.overFH05 / row.totalGames) >= 0.7">{{ row.overFH05 }}</td>
+              <td>{{ row.overFH15 }}</td>
+              <td>{{ row.overFH25 }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="predictions-grid">
+        <div class="pred-box">
+          <div class="label">Full Time</div>
+          <div class="value">{{ analysis.predictions.fullTime }}</div>
+        </div>
+        <div class="pred-box">
+          <div class="label">1st Half</div>
+          <div class="value">{{ analysis.predictions.firstHalf }}</div>
+        </div>
+        <div class="pred-box">
+          <div class="label">2nd Half</div>
+          <div class="value">{{ analysis.predictions.secondHalf }}</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span class="indicator"></span> Green numbers indicate high probability (≥90% for 0.5, ≥80% for 1.5, ≥70% for
+        2.5).
+      </div>
+    </div>
+  </div>
+</div>
