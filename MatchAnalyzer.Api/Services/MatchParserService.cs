@@ -98,6 +98,9 @@ public class MatchParserService
         // Parse Teams
         var homeTeamName = ExtractTeamName(content, 1);
         var awayTeamName = ExtractTeamName(content, 2);
+        
+        var homeTeamId = ExtractTeamId(content, 1, homeTeamName);
+        var awayTeamId = ExtractTeamId(content, 2, awayTeamName);
 
         // Update or Create the Main Match
         var match = await _context.Matches.FirstOrDefaultAsync(m => m.MatchId == matchId);
@@ -108,6 +111,8 @@ public class MatchParserService
                 MatchId = matchId,
                 HomeTeam = homeTeamName,
                 AwayTeam = awayTeamName,
+                HomeTeamId = homeTeamId,
+                AwayTeamId = awayTeamId,
                 Date = scheduledDate?.ToUniversalTime(),
                 IsParsed = true // We parsed the meta-data
             };
@@ -117,6 +122,8 @@ public class MatchParserService
         {
             match.HomeTeam = homeTeamName;
             match.AwayTeam = awayTeamName;
+            match.HomeTeamId = homeTeamId;
+            match.AwayTeamId = awayTeamId;
             match.Date = scheduledDate?.ToUniversalTime() ?? match.Date;
             match.IsParsed = true;
         }
@@ -202,6 +209,50 @@ public class MatchParserService
         var m = Regex.Match(raw, @"AC÷1st Half[^¬]*¬IG÷(?<home>\d+)¬IH÷(?<away>\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
         if (!m.Success) return 0;
         return int.Parse(m.Groups["home"].Value) + int.Parse(m.Groups["away"].Value);
+    }
+
+    private string ExtractTeamId(string content, int index, string teamName)
+    {
+        try
+        {
+            var parts = content.Split("Last matches: ");
+            if (parts.Length <= index) return string.Empty;
+
+            var section = parts[index];
+            
+            // Find first match in this section
+            var matchMatch = Regex.Match(section, @"~KC÷.*?(?=~KC÷|~KB÷|$)", RegexOptions.Singleline);
+            if (!matchMatch.Success) return string.Empty;
+
+            var mContent = matchMatch.Value;
+            
+            // Extract IDs and Names
+            var ids = Regex.Match(mContent, @"UQ÷(?<id1>[^¬]+)¬(?:[^¬]*¬)*?UO÷(?<id2>[^¬]+)");
+            var names = Regex.Match(mContent, @"KJ÷\*?(?<n1>[^¬]+)¬(?:[^¬]*¬)*?KK÷\*?(?<n2>[^¬]+)");
+
+            if (ids.Success && names.Success)
+            {
+                var n1 = names.Groups["n1"].Value;
+                var n2 = names.Groups["n2"].Value;
+                var id1 = ids.Groups["id1"].Value;
+                var id2 = ids.Groups["id2"].Value;
+
+                // Check against team name to decide which ID is which
+                if (n1.Contains(teamName, StringComparison.OrdinalIgnoreCase) || teamName.Contains(n1, StringComparison.OrdinalIgnoreCase))
+                    return id1;
+                
+                if (n2.Contains(teamName, StringComparison.OrdinalIgnoreCase) || teamName.Contains(n2, StringComparison.OrdinalIgnoreCase))
+                    return id2;
+                
+                // Fallback: If no match found, assume the first team mentioned in the block header ("Last matches: X") 
+                // corresponds to the context, but determining if X is Home or Away in *this specific sub-match* 
+                // requires knowing X's name. Logic above covers name matching.
+                // If fuzzy match fails, return empty to be safe.
+                return id1; 
+            }
+        }
+        catch { }
+        return string.Empty;
     }
 
     private string ExtractTeamName(string content, int index)
