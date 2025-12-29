@@ -146,6 +146,8 @@ public class MatchParserService
 
         var matches = Regex.Matches(content, pattern, RegexOptions.Singleline);
         
+        var matchIds = await _context.Matches.Select(x => x.MatchId).ToListAsync();
+
         foreach (System.Text.RegularExpressions.Match m in matches)
         {
             var hMatchId = m.Groups["matchId"].Value;
@@ -200,7 +202,10 @@ public class MatchParserService
                IsParsed = true // Finished game
            };
            
+            if (matchIds.Contains(hMatchId)) continue;
+           
            _context.Matches.Add(hMatch);
+           matchIds.Add(hMatchId);
         }
     }
 
