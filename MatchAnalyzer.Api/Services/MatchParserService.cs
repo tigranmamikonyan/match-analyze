@@ -17,12 +17,13 @@ public class MatchParserService
         _context = context;
         _httpClient = httpClient;
         _logger = logger;
-        
+
         // Headers required by the feed
         if (!_httpClient.DefaultRequestHeaders.Contains("x-fsign"))
         {
             _httpClient.DefaultRequestHeaders.Add("x-fsign", "SW9D1eZo");
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
         }
     }
 
@@ -33,7 +34,8 @@ public class MatchParserService
 
         try
         {
-            var upcoming = await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/f_1_{addedDaysCount}_4_en_1");
+            var upcoming =
+                await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/f_1_{addedDaysCount}_4_en_1");
             if (!upcoming.IsSuccessStatusCode) return 0;
 
             var str = await upcoming.Content.ReadAsStringAsync();
@@ -61,7 +63,7 @@ public class MatchParserService
             {
                 // Check if upcoming match exists
                 var existing = await _context.Matches.FirstOrDefaultAsync(m => m.MatchId == matchId);
-                
+
                 // If exists and is parsed/finished, skip
                 if (existing != null && existing.IsParsed) continue;
 
@@ -76,8 +78,6 @@ public class MatchParserService
                     _logger.LogError(ex, "Error processing match {MatchId}", matchId);
                 }
             }
-            
-            await _context.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -91,14 +91,16 @@ public class MatchParserService
     private async Task ProcessMatch(string matchId, DateTime? scheduledDate)
     {
         // Fetch details (Head to Head etc)
-        var response = await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_hh_1_{matchId}"); // df_hh seems to be H2H feed
+        var response =
+            await _httpClient.GetAsync(
+                $"https://2.flashscore.ninja/2/x/feed/df_hh_1_{matchId}"); // df_hh seems to be H2H feed
         if (!response.IsSuccessStatusCode) return;
         var content = await response.Content.ReadAsStringAsync();
 
         // Parse Teams
         var homeTeamName = ExtractTeamName(content, 1);
         var awayTeamName = ExtractTeamName(content, 2);
-        
+
         var homeTeamId = ExtractTeamId(content, 1, homeTeamName);
         var awayTeamId = ExtractTeamId(content, 2, awayTeamName);
 
@@ -131,8 +133,10 @@ public class MatchParserService
         // Parse Historical Matches (H2H) and save them too
         // The original code iterated through matches found in `content` to build `matchInfos.Results`
         // We will parse them and save them to DB so we can query them later.
-        
+
         await ParseAndSaveHistoricalMatches(content);
+
+        await _context.SaveChangesAsync();
     }
 
     private async Task ParseAndSaveHistoricalMatches(string content)
@@ -145,13 +149,13 @@ public class MatchParserService
                       @"(?:[^¬]*¬)*?KL÷(?<score>\d+:\d+)";
 
         var matches = Regex.Matches(content, pattern, RegexOptions.Singleline);
-        
+
         var matchIds = await _context.Matches.Select(x => x.MatchId).ToListAsync();
 
         foreach (System.Text.RegularExpressions.Match m in matches)
         {
             var hMatchId = m.Groups["matchId"].Value;
-            
+
             // Check if this historical match exists
             var exists = await _context.Matches.AnyAsync(x => x.MatchId == hMatchId);
             if (exists) continue; // Already saved
@@ -159,12 +163,12 @@ public class MatchParserService
             var timestamp = long.Parse(m.Groups["timestamp"].Value);
             var date = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
             var score = m.Groups["score"].Value;
-            
+
             // Fetch First Half Score if needed (df_sui)
             // Warning: This makes N requests. Might be slow? 
             // User did say "parse data save into db" so we can avoid doing this repeated work.
             // Let's do it individually.
-            
+
             // Wait, we need to be careful about rate limits. 
             // Depending on user context, we might want to delay?
             // "I can only parse not finished games and upcoming game... so it will become more faster"
@@ -172,46 +176,50 @@ public class MatchParserService
 
             int firstHalfGoals = 0;
             // Fetch extra info for First Half Goals
-           /* 
-              Commented out to save time/bandwidth for now, unless critical. 
-              Original code did fetch `df_sui_1_{matchId}` for `ParseFirstHalfGoals`.
-              I will assume we need it.
-           */
-           try 
-           {
-               var subResponse = await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{hMatchId}");
-               if (subResponse.IsSuccessStatusCode)
-               {
-                   var subContent = await subResponse.Content.ReadAsStringAsync();
-                   firstHalfGoals = ParseFirstHalfGoals(subContent);
-               }
-           }
-           catch {}
+            /*
+               Commented out to save time/bandwidth for now, unless critical.
+               Original code did fetch `df_sui_1_{matchId}` for `ParseFirstHalfGoals`.
+               I will assume we need it.
+            */
+            try
+            {
+                var subResponse =
+                    await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{hMatchId}");
+                if (subResponse.IsSuccessStatusCode)
+                {
+                    var subContent = await subResponse.Content.ReadAsStringAsync();
+                    firstHalfGoals = ParseFirstHalfGoals(subContent);
+                }
+            }
+            catch
+            {
+            }
 
-           var hMatch = new ApiMatch
-           {
-               MatchId = hMatchId,
-               Date = date,
-               HomeTeam = m.Groups["team1Name"].Value.Trim(),
-               AwayTeam = m.Groups["team2Name"].Value.Trim(),
-               HomeTeamId = m.Groups["team1Id"].Value.Trim(),
-               AwayTeamId = m.Groups["team2Id"].Value.Trim(),
-               Score = score,
-               GoalsCount = score.Split(':').Sum(x => int.Parse(x)),
-               FirstHalfGoals = firstHalfGoals,
-               IsParsed = true // Finished game
-           };
-           
+            var hMatch = new ApiMatch
+            {
+                MatchId = hMatchId,
+                Date = date,
+                HomeTeam = m.Groups["team1Name"].Value.Trim(),
+                AwayTeam = m.Groups["team2Name"].Value.Trim(),
+                HomeTeamId = m.Groups["team1Id"].Value.Trim(),
+                AwayTeamId = m.Groups["team2Id"].Value.Trim(),
+                Score = score,
+                GoalsCount = score.Split(':').Sum(x => int.Parse(x)),
+                FirstHalfGoals = firstHalfGoals,
+                IsParsed = true // Finished game
+            };
+
             if (matchIds.Contains(hMatchId)) continue;
-           
-           _context.Matches.Add(hMatch);
-           matchIds.Add(hMatchId);
+
+            _context.Matches.Add(hMatch);
+            matchIds.Add(hMatchId);
         }
     }
 
     private int ParseFirstHalfGoals(string raw)
     {
-        var m = Regex.Match(raw, @"AC÷1st Half[^¬]*¬IG÷(?<home>\d+)¬IH÷(?<away>\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        var m = Regex.Match(raw, @"AC÷1st Half[^¬]*¬IG÷(?<home>\d+)¬IH÷(?<away>\d+)",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
         if (!m.Success) return 0;
         return int.Parse(m.Groups["home"].Value) + int.Parse(m.Groups["away"].Value);
     }
@@ -224,13 +232,13 @@ public class MatchParserService
             if (parts.Length <= index) return string.Empty;
 
             var section = parts[index];
-            
+
             // Find first match in this section
             var matchMatch = Regex.Match(section, @"~KC÷.*?(?=~KC÷|~KB÷|$)", RegexOptions.Singleline);
             if (!matchMatch.Success) return string.Empty;
 
             var mContent = matchMatch.Value;
-            
+
             // Extract IDs and Names
             var ids = Regex.Match(mContent, @"UQ÷(?<id1>[^¬]+)¬(?:[^¬]*¬)*?UO÷(?<id2>[^¬]+)");
             var names = Regex.Match(mContent, @"KJ÷\*?(?<n1>[^¬]+)¬(?:[^¬]*¬)*?KK÷\*?(?<n2>[^¬]+)");
@@ -243,35 +251,43 @@ public class MatchParserService
                 var id2 = ids.Groups["id2"].Value;
 
                 // Check against team name to decide which ID is which
-                if (n1.Contains(teamName, StringComparison.OrdinalIgnoreCase) || teamName.Contains(n1, StringComparison.OrdinalIgnoreCase))
+                if (n1.Contains(teamName, StringComparison.OrdinalIgnoreCase) ||
+                    teamName.Contains(n1, StringComparison.OrdinalIgnoreCase))
                     return id1;
-                
-                if (n2.Contains(teamName, StringComparison.OrdinalIgnoreCase) || teamName.Contains(n2, StringComparison.OrdinalIgnoreCase))
+
+                if (n2.Contains(teamName, StringComparison.OrdinalIgnoreCase) ||
+                    teamName.Contains(n2, StringComparison.OrdinalIgnoreCase))
                     return id2;
-                
+
                 // Fallback: If no match found, assume the first team mentioned in the block header ("Last matches: X") 
                 // corresponds to the context, but determining if X is Home or Away in *this specific sub-match* 
                 // requires knowing X's name. Logic above covers name matching.
                 // If fuzzy match fails, return empty to be safe.
-                return id1; 
+                return id1;
             }
         }
-        catch { }
+        catch
+        {
+        }
+
         return string.Empty;
     }
 
     private string ExtractTeamName(string content, int index)
     {
-         try 
-         {
-             var parts = content.Split("Last matches: ");
-             if (parts.Length > index)
-             {
-                 return parts[index].Split('¬')[0].Trim();
-             }
-         } 
-         catch {}
-         return "Unknown";
+        try
+        {
+            var parts = content.Split("Last matches: ");
+            if (parts.Length > index)
+            {
+                return parts[index].Split('¬')[0].Trim();
+            }
+        }
+        catch
+        {
+        }
+
+        return "Unknown";
     }
 
     public async Task<List<ApiMatch>> GetMatchesAsync(DateTime? dateSpan)
@@ -283,6 +299,7 @@ public class MatchParserService
             var end = start.AddDays(1);
             query = query.Where(m => m.Date >= start && m.Date < end);
         }
+
         return await query.OrderBy(m => m.Date).ToListAsync();
     }
 
@@ -293,7 +310,7 @@ public class MatchParserService
         // Date Filter
         if (request.From.HasValue)
             query = query.Where(m => m.Date >= request.From.Value.ToUniversalTime());
-        
+
         if (request.To.HasValue)
             query = query.Where(m => m.Date <= request.To.Value.ToUniversalTime());
 

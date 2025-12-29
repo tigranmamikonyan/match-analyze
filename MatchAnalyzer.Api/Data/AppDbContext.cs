@@ -10,4 +10,13 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Match> Matches { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.Entity<Match>()
+            .HasIndex(m => m.MatchId)
+            .IsUnique();
+    }
 }
