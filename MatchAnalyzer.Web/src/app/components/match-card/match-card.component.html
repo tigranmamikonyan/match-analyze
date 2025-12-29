@@ -3,7 +3,7 @@
     <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
     <div class="actions">
       <a [href]="'https://www.flashscore.com/match/' + match.matchId + '/#/match-summary'" target="_blank"
-        (click)="$event.stopPropagation()" class="fs-link">
+        rel="noopener noreferrer" (click)="$event.stopPropagation()" class="fs-link">
         Flashscore ↗
       </a>
       <span class="status" *ngIf="match.isParsed">Parsed</span>
