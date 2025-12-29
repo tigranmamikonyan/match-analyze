@@ -1,10 +1,16 @@
-<div class="match-card" [class.expanded]="isExpanded">
+<div class="match-card" [class.expanded]="isExpanded" (click)="toggleAnalysis()">
   <div class="card-header">
     <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
-    <span class="status" *ngIf="match.isParsed">Parsed</span>
+    <div class="actions">
+      <a [href]="'https://www.flashscore.com/match/' + match.matchId + '/#/match-summary'" target="_blank"
+        (click)="$event.stopPropagation()" class="fs-link">
+        Flashscore ↗
+      </a>
+      <span class="status" *ngIf="match.isParsed">Parsed</span>
+    </div>
   </div>
 
-  <div class="teams-container" (click)="toggleAnalysis()">
+  <div class="teams-container">
     <div class="team home">
       <div class="name">{{ match.homeTeam }}</div>
     </div>
@@ -28,7 +34,7 @@
   </div>
 
   <!-- Analysis Section -->
-  <div class="analysis-section" *ngIf="isExpanded">
+  <div class="analysis-section" *ngIf="isExpanded" (click)="$event.stopPropagation()">
     <div class="loading-state" *ngIf="isLoadingAnalysis">
       Loading stats...
     </div>

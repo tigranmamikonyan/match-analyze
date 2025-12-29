@@ -23,17 +23,35 @@
   .card-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 0.85rem;
     color: rgba(255, 255, 255, 0.6);
     margin-bottom: 1rem;
 
-    .status {
-      background: rgba(16, 185, 129, 0.2);
-      color: #34d399;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 500;
-      font-size: 0.75rem;
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      .fs-link {
+        color: rgba(255, 255, 255, 0.5);
+        text-decoration: none;
+        font-size: 0.75rem;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #818cf8;
+        }
+      }
+
+      .status {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+        font-size: 0.75rem;
+      }
     }
   }
 
@@ -199,5 +217,77 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .match-card {
+    padding: 1rem;
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+
+      .actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
+    .teams-container {
+      margin-bottom: 1rem;
+
+      .team {
+        padding: 0 4px;
+
+        .name {
+          font-size: 1rem;
+          line-height: 1.2;
+        }
+      }
+
+      .score-board {
+        flex: 0 0 70px; // Slightly smaller
+
+        .score {
+          font-size: 1.5rem;
+        }
+
+        .vs {
+          font-size: 1.2rem;
+        }
+      }
+    }
+
+    .analysis-section {
+      padding-top: 1rem;
+
+      .predictions-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+      }
+
+      .stats-table-wrapper {
+        // Ensure scrollbar is visible/accessible
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .stats-table {
+        min-width: 600px; // Force horizontal scroll instead of squishing
+        font-size: 0.75rem;
+
+        th,
+        td {
+          padding: 0.5rem 0.3rem;
+        }
+      }
+
+      .legend {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+      }
+    }
   }
 }
