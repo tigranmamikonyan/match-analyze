@@ -88,6 +88,42 @@ public class MatchParserService
         return savedCount;
     }
 
+    public async Task<int> UpdateUnparsedMatchesAsync()
+    {
+        var unparsedMatches = await _context.Matches
+            .Where(m => !m.IsParsed && m.Date < DateTime.UtcNow.AddDays(-1))
+            .ToListAsync();
+
+        _logger.LogInformation("Found {Count} unparsed matches to process", unparsedMatches.Count);
+
+        int count = 0;
+        foreach (var match in unparsedMatches)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{match.MatchId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var (firstHalf, secondHalf) = GetHalfByHalfGoals(content);
+                    
+                    match.FirstHalfGoals = firstHalf;
+                    match.GoalsCount = firstHalf + secondHalf;
+                    match.IsParsed = true; 
+                     
+                    await _context.SaveChangesAsync();
+                    count++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing unparsed match {MatchId}", match.MatchId);
+            }
+        }
+
+        return count;
+    }
+
     private async Task ProcessMatch(string matchId, DateTime? scheduledDate)
     {
         // Fetch details (Head to Head etc)
@@ -214,6 +250,41 @@ public class MatchParserService
             _context.Matches.Add(hMatch);
             matchIds.Add(hMatchId);
         }
+    }
+
+    public static (int firstHalfGoals, int secondHalfGoals) GetHalfByHalfGoals(string rawData)
+    {
+        string currentHalf = "";
+        int firstHalfGoals = 0;
+        int secondHalfGoals = 0;
+
+        // Split data into blocks
+        string[] blocks = rawData.Split(new[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var block in blocks)
+        {
+            // Detect if we are switching halves (AC tag)
+            if (block.Contains("AC÷"))
+            {
+                if (block.Contains("1st Half")) currentHalf = "1H";
+                else if (block.Contains("2nd Half")) currentHalf = "2H";
+            }
+
+            // Check if the block is a Goal or Penalty (IK tag)
+            // Note: IK÷Penalty and IK÷Goal both count as scores
+            if (block.Contains("IK÷Goal") || block.Contains("IK÷Penalty"))
+            {
+                // We only count if it's a primary goal event (IA÷1 or IA÷2)
+                // and not an "Assistance" or "Penalty Awarded" sub-block
+                if (block.Contains("IK÷Assistance") || block.Contains("IK÷Penalty Awarded"))
+                    continue;
+
+                if (currentHalf == "1H") firstHalfGoals++;
+                if (currentHalf == "2H") secondHalfGoals++;
+            }
+        }
+
+        return (firstHalfGoals, secondHalfGoals);
     }
 
     private int ParseFirstHalfGoals(string raw)

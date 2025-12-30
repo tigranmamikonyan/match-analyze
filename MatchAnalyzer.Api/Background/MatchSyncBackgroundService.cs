@@ -61,9 +61,10 @@ public class MatchSyncBackgroundService : BackgroundService
                 // User said "upcoming game for that day".
                 // Defaulting to 1 day ahead (tomorrow's games, or today's?)
                 // The original code did `addedDaysCount = 1`.
+                var updatedCount = await parserService.UpdateUnparsedMatchesAsync();
                 
                 int count = await parserService.SyncUpcomingMatches(1); 
-                _logger.LogInformation("Background Sync completed. Processed {Count} matches.", count);
+                _logger.LogInformation("Background Sync completed. Processed {Count} matches, updated {UpdatedCount} unparsed matches.", count, updatedCount);
             }
             catch (Exception ex)
             {
