@@ -29,19 +29,35 @@ export class DashboardComponent implements OnInit {
     ]
   };
 
-  thresholds: ThresholdConfig = {
-    over05: 90,
-    over15: 80,
-    over25: 70,
-    overFH05: 70,
-    overFH15: 60,
-    overFH25: 50
-  };
+  thresholds: ThresholdConfig = this.loadSettings();
 
   isFiltersVisible = true;
 
   constructor(private matchService: MatchService) {
     this.loadMatches();
+  }
+
+  private loadSettings(): ThresholdConfig {
+    const saved = localStorage.getItem('match_analyzer_thresholds');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse settings', e);
+      }
+    }
+    return {
+      over05: 90,
+      over15: 80,
+      over25: 70,
+      overFH05: 70,
+      overFH15: 60,
+      overFH25: 50
+    };
+  }
+
+  saveSettings(): void {
+    localStorage.setItem('match_analyzer_thresholds', JSON.stringify(this.thresholds));
   }
 
   ngOnInit(): void {

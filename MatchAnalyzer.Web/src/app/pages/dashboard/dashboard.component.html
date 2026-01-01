@@ -91,27 +91,27 @@
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <div class="input-group small">
                     <span class="label">> 0.5</span>
-                    <input type="number" [(ngModel)]="thresholds.over05" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.over05" (change)="saveSettings()" min="0" max="100">
                 </div>
                 <div class="input-group small">
                     <span class="label">> 1.5</span>
-                    <input type="number" [(ngModel)]="thresholds.over15" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.over15" (change)="saveSettings()" min="0" max="100">
                 </div>
                 <div class="input-group small">
                     <span class="label">> 2.5</span>
-                    <input type="number" [(ngModel)]="thresholds.over25" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.over25" (change)="saveSettings()" min="0" max="100">
                 </div>
                 <div class="input-group small">
                     <span class="label">FH > 0.5</span>
-                    <input type="number" [(ngModel)]="thresholds.overFH05" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.overFH05" (change)="saveSettings()" min="0" max="100">
                 </div>
                 <div class="input-group small">
                     <span class="label">FH > 1.5</span>
-                    <input type="number" [(ngModel)]="thresholds.overFH15" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.overFH15" (change)="saveSettings()" min="0" max="100">
                 </div>
                 <div class="input-group small">
                     <span class="label">FH > 2.5</span>
-                    <input type="number" [(ngModel)]="thresholds.overFH25" min="0" max="100">
+                    <input type="number" [(ngModel)]="thresholds.overFH25" (change)="saveSettings()" min="0" max="100">
                 </div>
             </div>
         </div>
