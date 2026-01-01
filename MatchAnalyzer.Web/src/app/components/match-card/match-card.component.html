@@ -25,6 +25,7 @@
       <div class="goals-info" *ngIf="match.goalsCount !== undefined">
         <span class="pill" title="Total Goals">Total: {{ match.goalsCount }}</span>
         <span class="pill" title="1st Half Goals">1st Half: {{ match.firstHalfGoals ?? 0 }}</span>
+        <span class="pill" title="2nd Half Goals">2nd Half: {{ match.goalsCount - (match.firstHalfGoals ?? 0) }}</span>
       </div>
     </div>
 
