@@ -39,63 +39,91 @@ public class MatchAnalysisService
 
     public async Task<MatchAnalysisDto> AnalyzeMatchAsync(Match match)
     {
+        var results = await AnalyzeMatchesBulkAsync(new List<Match> { match });
+        return results[match];
+    }
+
+    public async Task<Dictionary<Match, MatchAnalysisDto>> AnalyzeMatchesBulkAsync(List<Match> matches)
+    {
+        var result = new Dictionary<Match, MatchAnalysisDto>();
+        if (matches.Count == 0) return result;
+
+        // 1. Collect all Team IDs
+        var teamIds = new HashSet<string>();
+        foreach (var m in matches)
+        {
+            teamIds.Add(m.HomeTeamId);
+            teamIds.Add(m.AwayTeamId);
+        }
+
+        // 2. Fetch all historical matches for these teams (Since 2020)
+        // Optimization: We only need parsed matches with scores
         var startYear = 2020;
-        var currentYear = DateTime.UtcNow.Year + 1; // Include next year if data exists
-        var stats = new List<YearlyStats>();
-
-        // Helper to query matches
-        async Task<List<Match>> GetMatches(string teamId, int year)
-        {
-            var start = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var end = start.AddYears(1);
-            
-            return await _context.Matches
-                .Where(m => (m.HomeTeamId == teamId || m.AwayTeamId == teamId) && m.Date >= start && m.Date < end && m.IsParsed && m.Score != null)
-                .ToListAsync();
-        }
+        var startDate = new DateTime(startYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         
-        async Task<List<Match>> GetH2HMatches(string homeId, string awayId, int year)
+        var historyMatches = await _context.Matches
+            .Where(m => (teamIds.Contains(m.HomeTeamId) || teamIds.Contains(m.AwayTeamId)) 
+                        && m.Date >= startDate 
+                        && m.IsParsed 
+                        && m.Score != null)
+            .ToListAsync();
+
+        // 3. Group by TeamId for O(1) lookup
+        // A match belongs to Team X if X is Home OR Away
+        var teamHistory = teamIds.ToDictionary(id => id, id => new List<Match>());
+
+        foreach (var hMatch in historyMatches)
         {
-            var start = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var end = start.AddYears(1);
-            
-            return await _context.Matches
-                .Where(m => ((m.HomeTeamId == homeId && m.AwayTeamId == awayId) || (m.HomeTeamId == awayId && m.AwayTeamId == homeId)) 
-                            && m.Date >= start && m.Date < end && m.IsParsed && m.Score != null)
-                .ToListAsync();
+            if (teamHistory.ContainsKey(hMatch.HomeTeamId)) teamHistory[hMatch.HomeTeamId].Add(hMatch);
+            // A match acts as history for both teams involved
+            if (teamHistory.ContainsKey(hMatch.AwayTeamId)) teamHistory[hMatch.AwayTeamId].Add(hMatch);
         }
 
-        // Iterate years downwards for table stats (display only)
+        // 4. Analyze each match in memory
+        foreach (var match in matches)
+        {
+            var homeParams = teamHistory.ContainsKey(match.HomeTeamId) ? teamHistory[match.HomeTeamId] : new List<Match>();
+            var awayParams = teamHistory.ContainsKey(match.AwayTeamId) ? teamHistory[match.AwayTeamId] : new List<Match>();
+            
+            // H2H is intersection where ONE is Home and OTHER is Away (or vice versa)
+            // But strict H2H means (Home=A & Away=B) OR (Home=B & Away=A)
+            // We can filter from `homeParams` where opponent is `match.AwayTeamId`
+            var h2hParams = homeParams.Where(m => m.HomeTeamId == match.AwayTeamId || m.AwayTeamId == match.AwayTeamId).ToList();
+
+            result[match] = CalculateAnalysis(match, homeParams, awayParams, h2hParams);
+        }
+
+        return result;
+    }
+
+    private MatchAnalysisDto CalculateAnalysis(Match match, List<Match> homeAll, List<Match> awayAll, List<Match> h2hAll)
+    {
+        // Filter out the match itself if it's in history (unlikely if it's upcoming, but good for safety)
+        // Actually, we want history *relative* to the match? usually yes, but if it's unseen upcoming, it won't be in history.
+        // If it was a past match being re-analyzed, we should exclude it to avoid bias? 
+        // For now, let's assume `homeAll` contains valid history.
+
+        var stats = new List<YearlyStats>();
+        var startYear = 2020;
+        var currentYear = DateTime.UtcNow.Year + 1;
+
+        // Yearly Stats
         for (int year = currentYear; year >= startYear; year--)
         {
-            var homeParams = await CalculateStats(match.HomeTeam, year, () => GetMatches(match.HomeTeamId, year));
-            if (homeParams.TotalGames > 0) stats.Add(homeParams);
-            
-            var awayParams = await CalculateStats(match.AwayTeam, year, () => GetMatches(match.AwayTeamId, year));
-            if (awayParams.TotalGames > 0) stats.Add(awayParams);
-            
-            var h2hParams = await CalculateStats("H2H Games", year, () => GetH2HMatches(match.HomeTeamId, match.AwayTeamId, year));
-            if (h2hParams.TotalGames > 0) stats.Add(h2hParams);
+            var yearStart = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var yearEnd = yearStart.AddYears(1);
+
+            var homeYear = homeAll.Where(m => m.Date >= yearStart && m.Date < yearEnd).ToList();
+            if (homeYear.Any()) stats.Add(CalculateStatsInternal(match.HomeTeam, year, homeYear));
+
+            var awayYear = awayAll.Where(m => m.Date >= yearStart && m.Date < yearEnd).ToList();
+            if (awayYear.Any()) stats.Add(CalculateStatsInternal(match.AwayTeam, year, awayYear));
+
+            var h2hYear = h2hAll.Where(m => m.Date >= yearStart && m.Date < yearEnd).ToList();
+            if (h2hYear.Any()) stats.Add(CalculateStatsInternal("H2H Games", year, h2hYear));
         }
-        
-        // --- Weighted Prediction Logic (Since 2020) ---
-        var sinceDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        
-        // 1. Fetch RAW matches for calculation
-        // Filter: Since 2020, Parsed, Has Score.
-        
-        var homeAll = await _context.Matches
-            .Where(m => (m.HomeTeamId == match.HomeTeamId || m.AwayTeamId == match.HomeTeamId) && m.Date >= sinceDate && m.IsParsed && m.Score != null)
-            .ToListAsync();
 
-        var awayAll = await _context.Matches
-            .Where(m => (m.HomeTeamId == match.AwayTeamId || m.AwayTeamId == match.AwayTeamId) && m.Date >= sinceDate && m.IsParsed && m.Score != null)
-            .ToListAsync();
-
-        var h2hAll = await _context.Matches
-            .Where(m => ((m.HomeTeamId == match.HomeTeamId && m.AwayTeamId == match.AwayTeamId) || (m.HomeTeamId == match.AwayTeamId && m.AwayTeamId == match.HomeTeamId)) && m.Date >= sinceDate && m.IsParsed && m.Score != null)
-            .ToListAsync();
-        
+        // Prediction Logic (Weights, Bayesian, etc) -> Same as before but using the lists
         // 2. Count Total Games for base weights
         int countA = homeAll.Count;
         int countB = awayAll.Count;
@@ -129,17 +157,17 @@ public class MatchAnalysisService
         int countH_FH_O25 = h2hAll.Count(m => (m.FirstHalfGoals ?? 0) > 2.5);
 
         // Second Half (GoalsCount - FirstHalfGoals)
-        int countA_SH_O05 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 0.5);
-        int countA_SH_O15 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 1.5);
-        int countA_SH_O25 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 2.5);
+        int countA_SH_O05 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 0.5);
+        int countA_SH_O15 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 1.5);
+        int countA_SH_O25 = homeAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 2.5);
 
-        int countB_SH_O05 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 0.5);
-        int countB_SH_O15 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 1.5);
-        int countB_SH_O25 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 2.5);
+        int countB_SH_O05 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 0.5);
+        int countB_SH_O15 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 1.5);
+        int countB_SH_O25 = awayAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 2.5);
 
-        int countH_SH_O05 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 0.5);
-        int countH_SH_O15 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 1.5);
-        int countH_SH_O25 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals??0)) > 2.5);
+        int countH_SH_O05 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 0.5);
+        int countH_SH_O15 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 1.5);
+        int countH_SH_O25 = h2hAll.Count(m => (m.GoalsCount - (m.FirstHalfGoals ?? 0)) > 2.5);
 
 
         // 4. Calculate Smoothed Rates (Bayesian Avg)
@@ -220,9 +248,8 @@ public class MatchAnalysisService
         public List<Match> _matches { get; set; } = new();
     }
 
-    private async Task<StatResult> CalculateStats(string teamName, int year, Func<Task<List<Match>>> fetcher)
+    private StatResult CalculateStatsInternal(string teamName, int year, List<Match> matches)
     {
-        var matches = await fetcher();
         var res = new StatResult { Year = year, Team = teamName, TotalGames = matches.Count, _matches = matches };
         
         foreach (var m in matches)

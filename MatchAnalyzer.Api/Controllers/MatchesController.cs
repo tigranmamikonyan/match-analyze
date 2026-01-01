@@ -77,16 +77,20 @@ public class MatchesController : ControllerBase
             return Ok(matches);
         }
 
-        // 3. Filter by conditions (requires analysis)
+        // 3. Bulk Analyze all candidates
+        // This is much faster than doing it one by one as it fetches history in 1 query
+        var analysisResults = await _analysisService.AnalyzeMatchesBulkAsync(matches);
+        
+        // 4. Filter by conditions
         var filteredMatches = new List<Match>();
         foreach (var match in matches)
         {
-            // Optimize: Only analyze if we really need to.
-            // Note: This could be slow if user selects a massive range.
-            var analysis = await _analysisService.AnalyzeMatchAsync(match);
-            if (_analysisService.MeetsConditions(analysis, request.Conditions))
+            if (analysisResults.TryGetValue(match, out var analysis))
             {
-                filteredMatches.Add(match);
+                if (_analysisService.MeetsConditions(analysis, request.Conditions))
+                {
+                    filteredMatches.Add(match);
+                }
             }
         }
 
