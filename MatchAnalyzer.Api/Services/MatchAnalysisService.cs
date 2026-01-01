@@ -236,10 +236,34 @@ public class MatchAnalysisService
             SecondHalf = $"≥0.5 = {ToPct(final_SH_05)}, ≥1.5 = {ToPct(final_SH_15)}, ≥2.5 = {ToPct(final_SH_25)}"
         };
 
+        // 7. Recent Form
+        var homeForm = GetRecentForm(homeAll);
+        var awayForm = GetRecentForm(awayAll);
+
         return new MatchAnalysisDto
         {
             Stats = stats,
-            Predictions = predictions
+            Predictions = predictions,
+            HomeForm = homeForm,
+            AwayForm = awayForm
+        };
+    }
+
+    private TeamRecentForm GetRecentForm(List<Match> matches)
+    {
+        // Sort descending by date
+        var last5 = matches.OrderByDescending(m => m.Date).Take(5).ToList();
+        
+        if (last5.Count == 0) return new TeamRecentForm();
+
+        // Calculate stats
+        var goals = last5.Select(m => m.GoalsCount ?? 0).ToList();
+        
+        return new TeamRecentForm
+        {
+            Last5Goals = goals,
+            AvgGoals = Math.Round(goals.Average(), 1),
+            Over25Count = goals.Count(g => g > 2.5)
         };
     }
 

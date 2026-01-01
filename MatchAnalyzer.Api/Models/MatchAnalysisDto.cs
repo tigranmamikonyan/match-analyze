@@ -4,6 +4,15 @@ public class MatchAnalysisDto
 {
     public required List<YearlyStats> Stats { get; set; }
     public required PredictionStats Predictions { get; set; }
+    public TeamRecentForm HomeForm { get; set; } = new();
+    public TeamRecentForm AwayForm { get; set; } = new();
+}
+
+public class TeamRecentForm
+{
+    public List<int> Last5Goals { get; set; } = new(); // e.g. [3, 2, 0, 5, 1]
+    public double AvgGoals { get; set; }
+    public int Over25Count { get; set; }
 }
 
 public class YearlyStats

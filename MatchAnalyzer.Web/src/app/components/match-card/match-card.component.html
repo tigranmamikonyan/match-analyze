@@ -90,6 +90,24 @@
         </div>
       </div>
 
+      <!-- Recent Form (Last 5) -->
+      <div class="predictions-grid" style="margin-top: 15px;" *ngIf="analysis.homeForm && analysis.awayForm">
+        <div class="pred-box">
+          <div class="label">Home Form (Last 5)</div>
+          <div class="value">
+            <div style="font-size: 0.9em;">Goals: {{ analysis.homeForm.last5Goals?.join(', ') }}</div>
+            <div style="font-size: 0.8em; color: #888;">Avg: {{ analysis.homeForm.avgGoals }}</div>
+          </div>
+        </div>
+        <div class="pred-box">
+          <div class="label">Away Form (Last 5)</div>
+          <div class="value">
+            <div style="font-size: 0.9em;">Goals: {{ analysis.awayForm.last5Goals?.join(', ') }}</div>
+            <div style="font-size: 0.8em; color: #888;">Avg: {{ analysis.awayForm.avgGoals }}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="legend">
         <span class="indicator"></span> Green numbers indicate high probability (≥{{thresholds.over05}}% for 0.5,
         ≥{{thresholds.over15}}% for 1.5, ≥{{thresholds.over25}}% for 2.5).

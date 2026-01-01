@@ -1,6 +1,14 @@
 export interface MatchAnalysis {
     stats: YearlyStats[];
     predictions: PredictionStats;
+    homeForm: TeamRecentForm;
+    awayForm: TeamRecentForm;
+}
+
+export interface TeamRecentForm {
+    last5Goals: number[];
+    avgGoals: number;
+    over25Count: number;
 }
 
 export interface YearlyStats {
