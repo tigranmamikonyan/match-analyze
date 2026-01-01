@@ -4,6 +4,15 @@ import { Match } from '../../models/match';
 import { MatchAnalysis } from '../../models/match-analysis';
 import { MatchService } from '../../services/match.service';
 
+export interface ThresholdConfig {
+  over05: number;
+  over15: number;
+  over25: number;
+  overFH05: number;
+  overFH15: number;
+  overFH25: number;
+}
+
 @Component({
   selector: 'app-match-card',
   standalone: true,
@@ -13,6 +22,14 @@ import { MatchService } from '../../services/match.service';
 })
 export class MatchCardComponent {
   @Input() match!: Match;
+  @Input() thresholds: ThresholdConfig = {
+    over05: 90,
+    over15: 80,
+    over25: 70,
+    overFH05: 70,
+    overFH15: 60,
+    overFH25: 50
+  };
 
   analysis: MatchAnalysis | null = null;
   isLoadingAnalysis = false;

@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
 import { Match } from '../../models/match';
-import { MatchCardComponent } from '../../components/match-card/match-card.component';
+import { MatchCardComponent, ThresholdConfig } from '../../components/match-card/match-card.component';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -23,10 +23,19 @@ export class DashboardComponent implements OnInit {
     to: null,
     team: '',
     conditions: [
-      { enabled: true, type: 'over', threshold: 'o05', half: 'full', minPercent: 60, maxPercent: 100 },
+      { enabled: false, type: 'over', threshold: 'o05', half: 'full', minPercent: 60, maxPercent: 100 },
       { enabled: false, type: 'over', threshold: 'o05', half: 'full', minPercent: 0, maxPercent: 100 },
       { enabled: false, type: 'over', threshold: 'o05', half: 'full', minPercent: 0, maxPercent: 100 }
     ]
+  };
+
+  thresholds: ThresholdConfig = {
+    over05: 90,
+    over15: 80,
+    over25: 70,
+    overFH05: 70,
+    overFH15: 60,
+    overFH25: 50
   };
 
   isFiltersVisible = true;
@@ -79,6 +88,22 @@ export class DashboardComponent implements OnInit {
       error: (err) => {
         console.error(err);
         alert('Sync failed');
+        this.isSyncing = false;
+      }
+    });
+  }
+
+  syncUnparsed(): void {
+    this.isSyncing = true;
+    this.matchService.syncUnparsedMatches().subscribe({
+      next: (count) => {
+        alert(`Parsed ${count} historic matches.`);
+        this.isSyncing = false;
+        this.loadMatches();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Sync Unparsed failed');
         this.isSyncing = false;
       }
     });

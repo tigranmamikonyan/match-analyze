@@ -9,6 +9,10 @@
             <button class="btn-sync" (click)="sync()" [disabled]="isSyncing">
                 {{ isSyncing ? 'Syncing...' : 'Sync Matches' }}
             </button>
+            <button class="btn-sync" (click)="syncUnparsed()" [disabled]="isSyncing"
+                style="margin-left: 10px; background: #673ab7;">
+                {{ isSyncing ? 'Processing...' : 'Sync Data' }}
+            </button>
         </div>
     </div>
 
@@ -80,6 +84,38 @@
             <button class="btn-search" (click)="loadMatches()">Search Matches</button>
         </div>
 
+        <!-- Threshold Settings -->
+        <div class="settings-group" style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
+            <div class="label" style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #888;">Green
+                Thresholds (%)</div>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <div class="input-group small">
+                    <span class="label">> 0.5</span>
+                    <input type="number" [(ngModel)]="thresholds.over05" min="0" max="100">
+                </div>
+                <div class="input-group small">
+                    <span class="label">> 1.5</span>
+                    <input type="number" [(ngModel)]="thresholds.over15" min="0" max="100">
+                </div>
+                <div class="input-group small">
+                    <span class="label">> 2.5</span>
+                    <input type="number" [(ngModel)]="thresholds.over25" min="0" max="100">
+                </div>
+                <div class="input-group small">
+                    <span class="label">FH > 0.5</span>
+                    <input type="number" [(ngModel)]="thresholds.overFH05" min="0" max="100">
+                </div>
+                <div class="input-group small">
+                    <span class="label">FH > 1.5</span>
+                    <input type="number" [(ngModel)]="thresholds.overFH15" min="0" max="100">
+                </div>
+                <div class="input-group small">
+                    <span class="label">FH > 2.5</span>
+                    <input type="number" [(ngModel)]="thresholds.overFH25" min="0" max="100">
+                </div>
+            </div>
+        </div>
+
         <div class="count-display">
             {{ matches.length }} matches found
         </div>
@@ -87,7 +123,7 @@
 
 
     <div class="grid" *ngIf="!isLoading && matches.length > 0">
-        <app-match-card *ngFor="let match of matches" [match]="match"></app-match-card>
+        <app-match-card *ngFor="let match of matches" [match]="match" [thresholds]="thresholds"></app-match-card>
     </div>
 
     <div class="loading" *ngIf="isLoading">

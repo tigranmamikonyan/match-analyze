@@ -56,16 +56,19 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of analysis.stats" [class.highlight]="row.year === 2025">
+            <tr *ngFor="let row of analysis.stats" [class.highlight]="row.year === 2025 || row.year === 2026">
               <td>{{ row.year }}</td>
               <td>{{ row.team }}</td>
               <td>{{ row.totalGames }}</td>
-              <td [class.high-prob]="(row.over05 / row.totalGames) >= 0.9">{{ row.over05 }}</td>
-              <td [class.high-prob]="(row.over15 / row.totalGames) >= 0.8">{{ row.over15 }}</td>
-              <td [class.high-prob]="(row.over25 / row.totalGames) >= 0.7">{{ row.over25 }}</td>
-              <td [class.high-prob]="(row.overFH05 / row.totalGames) >= 0.7">{{ row.overFH05 }}</td>
-              <td>{{ row.overFH15 }}</td>
-              <td>{{ row.overFH25 }}</td>
+              <td [class.high-prob]="(row.over05 / row.totalGames) * 100 >= thresholds.over05">{{ row.over05 }}</td>
+              <td [class.high-prob]="(row.over15 / row.totalGames) * 100 >= thresholds.over15">{{ row.over15 }}</td>
+              <td [class.high-prob]="(row.over25 / row.totalGames) * 100 >= thresholds.over25">{{ row.over25 }}</td>
+              <td [class.high-prob]="(row.overFH05 / row.totalGames) * 100 >= thresholds.overFH05">{{ row.overFH05 }}
+              </td>
+              <td [class.high-prob]="(row.overFH15 / row.totalGames) * 100 >= thresholds.overFH15">{{ row.overFH15 }}
+              </td>
+              <td [class.high-prob]="(row.overFH25 / row.totalGames) * 100 >= thresholds.overFH25">{{ row.overFH25 }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -87,8 +90,8 @@
       </div>
 
       <div class="legend">
-        <span class="indicator"></span> Green numbers indicate high probability (≥90% for 0.5, ≥80% for 1.5, ≥70% for
-        2.5).
+        <span class="indicator"></span> Green numbers indicate high probability (≥{{thresholds.over05}}% for 0.5,
+        ≥{{thresholds.over15}}% for 1.5, ≥{{thresholds.over25}}% for 2.5).
       </div>
     </div>
   </div>

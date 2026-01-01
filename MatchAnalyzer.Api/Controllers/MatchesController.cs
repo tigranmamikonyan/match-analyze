@@ -42,6 +42,21 @@ public class MatchesController : ControllerBase
         }
     }
 
+    [HttpPost("sync-unparsed")]
+    public async Task<ActionResult<int>> SyncUnparsedMatches()
+    {
+        try
+        {
+            var count = await _parserService.UpdateUnparsedMatchesAsync();
+            return Ok(count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sync unparsed failed");
+            return StatusCode(500, "Sync unparsed failed: " + ex.Message);
+        }
+    }
+
     [HttpGet("{id}/analysis")]
     public async Task<ActionResult<MatchAnalysisDto>> GetAnalysis(int id)
     {

@@ -105,10 +105,11 @@ public class MatchParserService
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var (firstHalf, secondHalf) = GetHalfByHalfGoals(content);
+                    var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
                     
-                    match.FirstHalfGoals = firstHalf;
-                    match.GoalsCount = firstHalf + secondHalf;
+                    match.FirstHalfGoals = home1H + away1H;
+                    match.GoalsCount = homeTotal + awayTotal;
+                    match.Score = $"{homeTotal}:{awayTotal}";
                     match.IsParsed = true; 
                      
                     await _context.SaveChangesAsync();
@@ -152,7 +153,6 @@ public class MatchParserService
                 HomeTeamId = homeTeamId,
                 AwayTeamId = awayTeamId,
                 Date = scheduledDate?.ToUniversalTime(),
-                IsParsed = true // We parsed the meta-data
             };
             _context.Matches.Add(match);
         }
@@ -163,7 +163,6 @@ public class MatchParserService
             match.HomeTeamId = homeTeamId;
             match.AwayTeamId = awayTeamId;
             match.Date = scheduledDate?.ToUniversalTime() ?? match.Date;
-            match.IsParsed = true;
         }
 
         // Parse Historical Matches (H2H) and save them too
@@ -252,39 +251,47 @@ public class MatchParserService
         }
     }
 
-    public static (int firstHalfGoals, int secondHalfGoals) GetHalfByHalfGoals(string rawData)
+    public static (int homeTotal, int awayTotal, int home1H, int away1H) GetScoresFromPeriodTags(string rawData)
     {
-        string currentHalf = "";
-        int firstHalfGoals = 0;
-        int secondHalfGoals = 0;
+        int home2H = 0, away2H = 0;
+        int home1H = 0, away1H = 0;
 
         // Split data into blocks
         string[] blocks = rawData.Split(new[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var block in blocks)
         {
-            // Detect if we are switching halves (AC tag)
             if (block.Contains("AC÷"))
             {
-                if (block.Contains("1st Half")) currentHalf = "1H";
-                else if (block.Contains("2nd Half")) currentHalf = "2H";
-            }
+                // Split properties within the AC block
+                var props = block.Split(new[] { "¬" }, StringSplitOptions.RemoveEmptyEntries);
+            
+                int periodHomeScore = 0;
+                int periodAwayScore = 0;
 
-            // Check if the block is a Goal or Penalty (IK tag)
-            // Note: IK÷Penalty and IK÷Goal both count as scores
-            if (block.Contains("IK÷Goal") || block.Contains("IK÷Penalty"))
-            {
-                // We only count if it's a primary goal event (IA÷1 or IA÷2)
-                // and not an "Assistance" or "Penalty Awarded" sub-block
-                if (block.Contains("IK÷Assistance") || block.Contains("IK÷Penalty Awarded"))
-                    continue;
+                foreach (var prop in props)
+                {
+                    if (prop.StartsWith("IH÷")) 
+                        int.TryParse(prop.Replace("IH÷", ""), out periodAwayScore);
+                    if (prop.StartsWith("IG÷")) 
+                        int.TryParse(prop.Replace("IG÷", ""), out periodHomeScore);
+                }
 
-                if (currentHalf == "1H") firstHalfGoals++;
-                if (currentHalf == "2H") secondHalfGoals++;
+                if (block.Contains("1st Half"))
+                {
+                    home1H = periodHomeScore;
+                    away1H = periodAwayScore;
+                }
+                else if (block.Contains("2nd Half"))
+                {
+                    // The 2nd Half tag usually represents the score at the end of the match
+                    home2H = periodHomeScore;
+                    away2H = periodAwayScore;
+                }
             }
         }
 
-        return (firstHalfGoals, secondHalfGoals);
+        return (home1H + home2H, away1H + away2H, home1H, away1H);
     }
 
     private int ParseFirstHalfGoals(string raw)

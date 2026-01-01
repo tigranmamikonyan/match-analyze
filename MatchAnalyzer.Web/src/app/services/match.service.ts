@@ -32,6 +32,10 @@ export class MatchService {
   syncMatches(days: number = 1): Observable<number> {
     return this.http.post<number>(`${this.apiUrl}/sync?days=${days}`, {});
   }
+
+  syncUnparsedMatches(): Observable<number> {
+    return this.http.post<number>(`${this.apiUrl}/sync-unparsed`, {});
+  }
 }
 
 export interface SearchRequest {
