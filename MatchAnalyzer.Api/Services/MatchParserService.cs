@@ -65,7 +65,7 @@ public class MatchParserService
                 var existing = await _context.Matches.FirstOrDefaultAsync(m => m.MatchId == matchId);
 
                 // If exists and is parsed/finished, skip
-                if (existing != null && existing.IsParsed) continue;
+                if (existing != null) continue;
 
                 // Process Match
                 try
