@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddCors();
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -17,20 +19,21 @@ builder.Services.AddScoped<MatchParserService>();
 builder.Services.AddScoped<MatchAnalysisService>();
 builder.Services.AddHostedService<MatchAnalyzer.Api.Background.MatchSyncBackgroundService>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
-});
-
 var app = builder.Build();
 
-app.UseCors("AllowAll");
+await using var scope = app.Services.CreateAsyncScope();
+using var db = scope.ServiceProvider.GetService<AppDbContext>();
+await db.Database.MigrateAsync();
+
+app.UseCors(x =>
+{
+    x.SetIsOriginAllowed(_ => true);
+    x.AllowAnyMethod();
+    x.AllowAnyHeader();
+    x.AllowCredentials();
+    x.WithExposedHeaders("Content-Disposition");
+});
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
