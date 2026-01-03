@@ -185,7 +185,7 @@ public class MatchParserService
 
         var matches = Regex.Matches(content, pattern, RegexOptions.Singleline);
 
-        var matchIds = await _context.Matches.Select(x => x.MatchId).ToListAsync();
+        var matchIds = await _context.Matches.Select(x => x.MatchId).AsNoTracking().ToListAsync();
 
         foreach (System.Text.RegularExpressions.Match m in matches)
         {
