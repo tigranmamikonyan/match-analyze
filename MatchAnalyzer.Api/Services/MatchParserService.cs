@@ -169,12 +169,12 @@ public class MatchParserService
         // The original code iterated through matches found in `content` to build `matchInfos.Results`
         // We will parse them and save them to DB so we can query them later.
 
-        await ParseAndSaveHistoricalMatches(content);
+        await ParseAndSaveHistoricalMatches(content, match.MatchId);
 
         await _context.SaveChangesAsync();
     }
 
-    private async Task ParseAndSaveHistoricalMatches(string content)
+    private async Task ParseAndSaveHistoricalMatches(string content, string currentMatchId)
     {
         var pattern = @"KC÷(?<timestamp>\d+)¬" +
                       @"(?:[^¬]*¬)*?KP÷(?<matchId>[^¬]+)¬" +
@@ -186,11 +186,14 @@ public class MatchParserService
         var matches = Regex.Matches(content, pattern, RegexOptions.Singleline);
 
         var matchIds = await _context.Matches.Select(x => x.MatchId).AsNoTracking().ToListAsync();
+        
+        matchIds.Add(currentMatchId);
 
         foreach (System.Text.RegularExpressions.Match m in matches)
         {
             var hMatchId = m.Groups["matchId"].Value;
 
+            if (matchIds.Contains(hMatchId)) continue;
             // Check if this historical match exists
             var exists = await _context.Matches.AnyAsync(x => x.MatchId == hMatchId);
             if (exists) continue; // Already saved
