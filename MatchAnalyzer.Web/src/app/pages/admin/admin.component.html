@@ -8,6 +8,10 @@
         <div class="action-card">
             <h2>Sync Upcoming Matches</h2>
             <p>Fetch upcoming matches and schedule updates.</p>
+            <div class="input-group">
+                <label>Days to sync:</label>
+                <input type="number" [(ngModel)]="syncDays" min="1" max="14" [disabled]="isSyncing">
+            </div>
             <button class="btn-sync primary" (click)="sync()" [disabled]="isSyncing">
                 {{ isSyncing ? 'Syncing...' : 'Sync Matches' }}
             </button>

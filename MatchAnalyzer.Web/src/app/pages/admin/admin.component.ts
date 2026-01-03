@@ -1,23 +1,25 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatchService } from '../../services/match.service';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 
 @Component({
     selector: 'app-admin',
     standalone: true,
-    imports: [CommonModule, RouterModule],
+    imports: [CommonModule, RouterModule, FormsModule],
     templateUrl: './admin.component.html',
     styleUrls: ['./admin.component.scss']
 })
 export class AdminComponent {
     isSyncing = false;
+    syncDays = 1;
 
     constructor(private matchService: MatchService) { }
 
     sync(): void {
         this.isSyncing = true;
-        this.matchService.syncMatches(1).subscribe({
+        this.matchService.syncMatches(this.syncDays).subscribe({
             next: (count) => {
                 alert(`Synced ${count} new matches/details.`);
                 this.isSyncing = false;
