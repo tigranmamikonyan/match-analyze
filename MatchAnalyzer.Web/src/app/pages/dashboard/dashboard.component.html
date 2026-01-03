@@ -6,13 +6,6 @@
             <button class="btn-icon" (click)="toggleFilters()" title="Toggle Filters">
                 <i class="icon-filter"></i> Filters
             </button>
-            <button class="btn-sync" (click)="sync()" [disabled]="isSyncing">
-                {{ isSyncing ? 'Syncing...' : 'Sync Matches' }}
-            </button>
-            <button class="btn-sync" (click)="syncUnparsed()" [disabled]="isSyncing"
-                style="margin-left: 10px; background: #673ab7;">
-                {{ isSyncing ? 'Processing...' : 'Sync Data' }}
-            </button>
         </div>
     </div>
 

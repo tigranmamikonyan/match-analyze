@@ -4,18 +4,19 @@ import { MatchService } from '../../services/match.service';
 import { Match } from '../../models/match';
 import { MatchCardComponent, ThresholdConfig } from '../../components/match-card/match-card.component';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatchCardComponent, FormsModule],
+  imports: [CommonModule, MatchCardComponent, FormsModule, RouterModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit {
   matches: Match[] = [];
   isLoading: boolean = false;
-  isSyncing = false;
+
 
   // Filter State
   filter = {
@@ -93,35 +94,4 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  sync(): void {
-    this.isSyncing = true;
-    this.matchService.syncMatches(1).subscribe({
-      next: (count) => {
-        alert(`Synced ${count} new matches/details.`);
-        this.isSyncing = false;
-        this.loadMatches();
-      },
-      error: (err) => {
-        console.error(err);
-        alert('Sync failed');
-        this.isSyncing = false;
-      }
-    });
-  }
-
-  syncUnparsed(): void {
-    this.isSyncing = true;
-    this.matchService.syncUnparsedMatches().subscribe({
-      next: (count) => {
-        alert(`Parsed ${count} historic matches.`);
-        this.isSyncing = false;
-        this.loadMatches();
-      },
-      error: (err) => {
-        console.error(err);
-        alert('Sync Unparsed failed');
-        this.isSyncing = false;
-      }
-    });
-  }
 }
