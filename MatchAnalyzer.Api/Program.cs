@@ -17,7 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<MatchParserService>();
 builder.Services.AddScoped<MatchAnalysisService>();
-builder.Services.AddHostedService<MatchAnalyzer.Api.Background.MatchSyncBackgroundService>();
+// builder.Services.AddHostedService<MatchAnalyzer.Api.Background.MatchSyncBackgroundService>();
 
 var app = builder.Build();
 
