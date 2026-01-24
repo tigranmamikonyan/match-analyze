@@ -34,6 +34,15 @@ export class DashboardComponent implements OnInit {
 
   isFiltersVisible = true;
 
+  selectedFavorites: { [key: string]: boolean } = {};
+
+  favoriteTypes = [
+    { label: '0.5', value: '0.5' },
+    { label: '1.5', value: '1.5' },
+    { label: 'FH 0.5', value: 'fh0.5' },
+    { label: 'FH 1.5', value: 'fh1.5' }
+  ];
+
   constructor(private matchService: MatchService) {
     this.loadMatches();
   }
@@ -72,12 +81,15 @@ export class DashboardComponent implements OnInit {
   loadMatches(): void {
     this.isLoading = true;
 
+    const favorites = Object.keys(this.selectedFavorites).filter(k => this.selectedFavorites[k]);
+
     // Construct request
     const request = {
       from: this.filter.from,
       to: this.filter.to,
       team: this.filter.team,
-      conditions: this.filter.conditions
+      conditions: this.filter.conditions,
+      favoriteFilters: favorites
     };
 
     console.log('Searching matches:', request);

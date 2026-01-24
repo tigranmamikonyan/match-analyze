@@ -9,7 +9,8 @@ import { MatchAnalysis } from '../models/match-analysis';
   providedIn: 'root'
 })
 export class MatchService {
-  private apiUrl = 'https://matchanalyzeapi.replyer.me/api/matches'; // Check port later
+  // private apiUrl = 'https://matchanalyzeapi.replyer.me/api/matches'; // Check port later
+  private apiUrl = 'http://localhost:5029/api/matches'; // Check port later
 
   constructor(private http: HttpClient) { }
 
@@ -36,6 +37,10 @@ export class MatchService {
   syncUnparsedMatches(): Observable<number> {
     return this.http.post<number>(`${this.apiUrl}/sync-unparsed`, {});
   }
+
+  toggleFavorite(id: number, type: string, value: boolean): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${id}/favorite`, { favoriteType: type, value: value });
+  }
 }
 
 export interface SearchRequest {
@@ -43,6 +48,7 @@ export interface SearchRequest {
   to?: string;
   team?: string;
   conditions: FilterCondition[];
+  favoriteFilters?: string[];
 }
 
 export interface FilterCondition {

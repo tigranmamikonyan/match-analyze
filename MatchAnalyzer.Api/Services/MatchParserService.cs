@@ -395,11 +395,28 @@ public class MatchParserService
         if (request.To.HasValue)
             query = query.Where(m => m.Date <= request.To.Value.ToUniversalTime());
 
-        // Team Filter
         if (!string.IsNullOrWhiteSpace(request.Team))
         {
             var team = request.Team.ToLower();
             query = query.Where(m => m.HomeTeam.ToLower().Contains(team) || m.AwayTeam.ToLower().Contains(team));
+        }
+
+        if (request.FavoriteFilters != null && request.FavoriteFilters.Any())
+        {
+            var check05 = request.FavoriteFilters.Contains("0.5");
+            var check15 = request.FavoriteFilters.Contains("1.5");
+            var checkFH05 = request.FavoriteFilters.Contains("fh0.5");
+            var checkFH15 = request.FavoriteFilters.Contains("fh1.5");
+
+            if (check05 || check15 || checkFH05 || checkFH15)
+            {
+                query = query.Where(m =>
+                    (check05 && m.IsFavorite05) ||
+                    (check15 && m.IsFavorite15) ||
+                    (checkFH05 && m.IsFavoriteFH05) ||
+                    (checkFH15 && m.IsFavoriteFH15)
+                );
+            }
         }
 
         return await query.OrderBy(m => m.Date).ToListAsync();

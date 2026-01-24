@@ -8,4 +8,8 @@ export interface Match {
   goalsCount?: number;
   firstHalfGoals?: number;
   isParsed: boolean;
+  isFavorite05: boolean;
+  isFavorite15: boolean;
+  isFavoriteFH05: boolean;
+  isFavoriteFH15: boolean;
 }

@@ -57,4 +57,37 @@ export class MatchCardComponent {
   get isLive(): boolean {
     return false;
   }
+
+  toggleFavorite(event: MouseEvent, type: string) {
+    event.stopPropagation();
+    let currentValue = false;
+    switch (type) {
+      case '0.5': currentValue = this.match.isFavorite05; break;
+      case '1.5': currentValue = this.match.isFavorite15; break;
+      case 'fh0.5': currentValue = this.match.isFavoriteFH05; break;
+      case 'fh1.5': currentValue = this.match.isFavoriteFH15; break;
+    }
+
+    const newValue = !currentValue;
+
+    // Optimistic update
+    switch (type) {
+      case '0.5': this.match.isFavorite05 = newValue; break;
+      case '1.5': this.match.isFavorite15 = newValue; break;
+      case 'fh0.5': this.match.isFavoriteFH05 = newValue; break;
+      case 'fh1.5': this.match.isFavoriteFH15 = newValue; break;
+    }
+
+    this.matchService.toggleFavorite(this.match.id, type, newValue).subscribe({
+      error: () => {
+        // Revert
+        switch (type) {
+          case '0.5': this.match.isFavorite05 = !newValue; break;
+          case '1.5': this.match.isFavorite15 = !newValue; break;
+          case 'fh0.5': this.match.isFavoriteFH05 = !newValue; break;
+          case 'fh1.5': this.match.isFavoriteFH15 = !newValue; break;
+        }
+      }
+    });
+  }
 }

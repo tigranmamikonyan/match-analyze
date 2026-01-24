@@ -15,4 +15,9 @@ public class Match
     
     public string HomeTeamId { get; set; } = string.Empty;
     public string AwayTeamId { get; set; } = string.Empty;
+
+    public bool IsFavorite05 { get; set; }
+    public bool IsFavorite15 { get; set; }
+    public bool IsFavoriteFH05 { get; set; }
+    public bool IsFavoriteFH15 { get; set; }
 }

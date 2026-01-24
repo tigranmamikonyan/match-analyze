@@ -2,6 +2,16 @@
   <div class="card-header">
     <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
     <div class="actions">
+      <div class="favorites">
+        <button class="fav-icon" [class.active]="match.isFavorite05" (click)="toggleFavorite($event, '0.5')"
+          title="Toggle 0.5 Favorite">0.5</button>
+        <button class="fav-icon" [class.active]="match.isFavorite15" (click)="toggleFavorite($event, '1.5')"
+          title="Toggle 1.5 Favorite">1.5</button>
+        <button class="fav-icon" [class.active]="match.isFavoriteFH05" (click)="toggleFavorite($event, 'fh0.5')"
+          title="Toggle FH 0.5 Favorite">FH0.5</button>
+        <button class="fav-icon" [class.active]="match.isFavoriteFH15" (click)="toggleFavorite($event, 'fh1.5')"
+          title="Toggle FH 1.5 Favorite">FH1.5</button>
+      </div>
       <a [href]="'https://www.flashscore.com/match/' + match.matchId + '/#/match-summary'" target="_blank"
         rel="noopener noreferrer" (click)="$event.stopPropagation()" class="fs-link">
         Flashscore ↗

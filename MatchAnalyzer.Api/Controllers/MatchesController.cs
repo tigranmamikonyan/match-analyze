@@ -12,12 +12,14 @@ public class MatchesController : ControllerBase
     private readonly MatchParserService _parserService;
     private readonly ILogger<MatchesController> _logger;
     private readonly MatchAnalysisService _analysisService;
+    private readonly AppDbContext _context;
 
-    public MatchesController(MatchParserService parserService, MatchAnalysisService analysisService, ILogger<MatchesController> logger)
+    public MatchesController(MatchParserService parserService, MatchAnalysisService analysisService, ILogger<MatchesController> logger, AppDbContext context)
     {
         _parserService = parserService;
         _analysisService = analysisService;
         _logger = logger;
+        _context = context;
     }
 
     [HttpGet]
@@ -95,5 +97,24 @@ public class MatchesController : ControllerBase
         }
 
         return Ok(filteredMatches);
+    }
+
+    [HttpPost("{id}/favorite")]
+    public async Task<ActionResult> ToggleFavorite(int id, [FromBody] ToggleFavoriteRequest request)
+    {
+        var match = await _context.Matches.FindAsync(id);
+        if (match == null) return NotFound();
+
+        switch (request.FavoriteType)
+        {
+            case "0.5": match.IsFavorite05 = request.Value; break;
+            case "1.5": match.IsFavorite15 = request.Value; break;
+            case "fh0.5": match.IsFavoriteFH05 = request.Value; break;
+            case "fh1.5": match.IsFavoriteFH15 = request.Value; break;
+            default: return BadRequest("Invalid favorite type");
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok();
     }
 }

@@ -6,6 +6,7 @@ public class SearchRequest
     public DateTime? To { get; set; }
     public string? Team { get; set; }
     public List<FilterCondition> Conditions { get; set; } = new();
+    public List<string>? FavoriteFilters { get; set; } // "0.5", "1.5", "fh0.5", "fh1.5"
 }
 
 public class FilterCondition
@@ -16,4 +17,10 @@ public class FilterCondition
     public string Half { get; set; } = "full"; // "full", "fh", "sh"
     public int MinPercent { get; set; } = 60;
     public int MaxPercent { get; set; } = 100;
+}
+
+public class ToggleFavoriteRequest
+{
+    public string FavoriteType { get; set; } = string.Empty;
+    public bool Value { get; set; }
 }
