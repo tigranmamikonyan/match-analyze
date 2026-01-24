@@ -9,8 +9,8 @@ import { MatchAnalysis } from '../models/match-analysis';
   providedIn: 'root'
 })
 export class MatchService {
-  // private apiUrl = 'https://matchanalyzeapi.replyer.me/api/matches'; // Check port later
-  private apiUrl = 'http://localhost:5029/api/matches'; // Check port later
+  private apiUrl = 'https://matchanalyzeapi.replyer.me/api/matches'; // Check port later
+  // private apiUrl = 'http://localhost:5029/api/matches'; // Check port later
 
   constructor(private http: HttpClient) { }
 
