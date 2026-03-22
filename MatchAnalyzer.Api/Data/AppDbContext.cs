@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Match> Matches { get; set; }
+    public DbSet<AIPredictionsLog> AiPredictionsLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
