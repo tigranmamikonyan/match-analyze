@@ -136,6 +136,7 @@ public class MatchParserService
         {
             _context.Remove(match);
         }
+        await _context.SaveChangesAsync();
 
         return count;
     }
