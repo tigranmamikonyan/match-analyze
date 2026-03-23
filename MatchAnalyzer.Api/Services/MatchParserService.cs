@@ -97,6 +97,8 @@ public class MatchParserService
         _logger.LogInformation("Found {Count} unparsed matches to process", unparsedMatches.Count);
 
         int count = 0;
+        var mustBeRemoved = new List<ApiMatch>();
+        
         foreach (var match in unparsedMatches)
         {
             try
@@ -105,6 +107,14 @@ public class MatchParserService
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
+
+                    if (!content.Contains("1st Half"))
+                    {
+                        _logger.LogWarning("Match {MatchId} has no 1st Half score", match.MatchId);
+                        mustBeRemoved.Add(match);
+                        continue;
+                    }
+                    
                     var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
                     
                     match.FirstHalfGoals = home1H + away1H;
@@ -120,6 +130,11 @@ public class MatchParserService
             {
                 _logger.LogError(ex, "Error processing unparsed match {MatchId}", match.MatchId);
             }
+        }
+        
+        foreach (var match in mustBeRemoved)
+        {
+            _context.Remove(match);
         }
 
         return count;
