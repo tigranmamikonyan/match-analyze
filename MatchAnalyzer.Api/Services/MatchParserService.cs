@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using MatchAnalyzer.Api.Data;
 using MatchAnalyzer.Api.Models;
@@ -103,7 +105,8 @@ public class MatchParserService
         {
             try
             {
-                var response = await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{match.MatchId}");
+                var response =
+                    await _httpClient.GetAsync($"https://2.flashscore.ninja/2/x/feed/df_sui_1_{match.MatchId}");
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -116,12 +119,26 @@ public class MatchParserService
                     }
                     
                     var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
-                    
+
                     match.FirstHalfGoals = home1H + away1H;
                     match.GoalsCount = homeTotal + awayTotal;
                     match.Score = $"{homeTotal}:{awayTotal}";
-                    match.IsParsed = true; 
-                     
+                    match.IsParsed = true;
+
+                    if (match.Over25Odds is null || match.Under25Odds is null)
+                    {
+                        var oddsResponse =
+                            await _httpClient.GetAsync(
+                                $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={match.MatchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
+            
+                        if (oddsResponse.IsSuccessStatusCode)
+                        {
+                            var (over25Odds, under25Odds) = ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
+                            match.Over25Odds = over25Odds;
+                            match.Under25Odds = under25Odds;
+                        }
+                    }
+
                     await _context.SaveChangesAsync();
                     count++;
                 }
@@ -150,6 +167,18 @@ public class MatchParserService
         if (!response.IsSuccessStatusCode) return;
         var content = await response.Content.ReadAsStringAsync();
 
+        var oddsResponse =
+            await _httpClient.GetAsync(
+                $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={matchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
+            
+        double? over25Odds = null;
+        double? under25Odds = null;
+
+        if (oddsResponse.IsSuccessStatusCode)
+        {
+            (over25Odds, under25Odds) = ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
+        }
+        
         // Parse Teams
         var homeTeamName = ExtractTeamName(content, 1);
         var awayTeamName = ExtractTeamName(content, 2);
@@ -169,6 +198,8 @@ public class MatchParserService
                 HomeTeamId = homeTeamId,
                 AwayTeamId = awayTeamId,
                 Date = scheduledDate?.ToUniversalTime(),
+                Over25Odds = over25Odds,
+                Under25Odds = under25Odds
             };
             _context.Matches.Add(match);
         }
@@ -189,6 +220,7 @@ public class MatchParserService
 
         await _context.SaveChangesAsync();
     }
+    
 
     private async Task ParseAndSaveHistoricalMatches(string content, string currentMatchId)
     {
@@ -202,7 +234,7 @@ public class MatchParserService
         var matches = Regex.Matches(content, pattern, RegexOptions.Singleline);
 
         var matchIds = await _context.Matches.Select(x => x.MatchId).AsNoTracking().ToListAsync();
-        
+
         matchIds.Add(currentMatchId);
 
         foreach (System.Text.RegularExpressions.Match m in matches)
@@ -284,15 +316,15 @@ public class MatchParserService
             {
                 // Split properties within the AC block
                 var props = block.Split(new[] { "¬" }, StringSplitOptions.RemoveEmptyEntries);
-            
+
                 int periodHomeScore = 0;
                 int periodAwayScore = 0;
 
                 foreach (var prop in props)
                 {
-                    if (prop.StartsWith("IH÷")) 
+                    if (prop.StartsWith("IH÷"))
                         int.TryParse(prop.Replace("IH÷", ""), out periodAwayScore);
-                    if (prop.StartsWith("IG÷")) 
+                    if (prop.StartsWith("IG÷"))
                         int.TryParse(prop.Replace("IG÷", ""), out periodHomeScore);
                 }
 
@@ -436,5 +468,72 @@ public class MatchParserService
         }
 
         return await query.OrderBy(m => m.Date).ToListAsync();
+    }
+    
+    public static (double? Over25, double? Under25) ExtractOverUnder25(string rawJsonData)
+    {
+        double? over25 = null;
+        double? under25 = null;
+
+        try
+        {
+            // Parse the raw JSON string
+            JsonNode root = JsonNode.Parse(rawJsonData);
+
+            // 1. Navigate into the core odds array safely using the null-conditional operator (?.)
+            JsonArray oddsCategories = root?["data"]?["findOddsByEventId"]?["odds"]?.AsArray();
+
+            if (oddsCategories == null) 
+                return (null, null);
+
+            // 2. Loop through the categories looking for Full Time Over/Under
+            foreach (JsonNode category in oddsCategories)
+            {
+                string bettingType = category?["bettingType"]?.ToString();
+                string bettingScope = category?["bettingScope"]?.ToString();
+
+                if (bettingType == "OVER_UNDER" && bettingScope == "FULL_TIME")
+                {
+                    JsonArray items = category?["odds"]?.AsArray();
+
+                    if (items != null)
+                    {
+                        // 3. We found the right category! Now check the specific lines.
+                        foreach (JsonNode item in items)
+                        {
+                            string handicapValue = item?["handicap"]?["value"]?.ToString();
+
+                            // Make sure there is a handicap and it equals exactly '2.5'
+                            if (handicapValue == "2.5")
+                            {
+                                string selection = item?["selection"]?.ToString();
+                                string valueStr = item?["value"]?.ToString();
+
+                                // Safely convert the string to a double (using InvariantCulture so decimals don't break in different regions)
+                                if (double.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue))
+                                {
+                                    if (selection == "OVER")
+                                    {
+                                        over25 = parsedValue;
+                                    }
+                                    else if (selection == "UNDER")
+                                    {
+                                        under25 = parsedValue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // We found our data, no need to check the rest of the categories
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Error parsing odds JSON: {ex.Message}");
+        }
+
+        return (over25, under25);
     }
 }

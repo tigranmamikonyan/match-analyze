@@ -20,6 +20,9 @@ public class Match
     public bool IsFavorite15 { get; set; }
     public bool IsFavoriteFH05 { get; set; }
     public bool IsFavoriteFH15 { get; set; } 
+    
+    public double? Over25Odds { get; set; }
+    public double? Under25Odds { get; set; }
 }
 
 public class AIPredictionsLog
