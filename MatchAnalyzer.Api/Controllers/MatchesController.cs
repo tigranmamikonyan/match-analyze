@@ -59,6 +59,21 @@ public class MatchesController : ControllerBase
         }
     }
 
+    [HttpPost("sync-tournament")]
+    public async Task<ActionResult<int>> UpdateMatchesTournamentsAsync()
+    {
+        try
+        {
+            var count = await _parserService.UpdateMatchesTournamentsAsync();
+            return Ok(count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sync tournament failed");
+            return StatusCode(500, "Sync tournament failed: " + ex.Message);
+        }
+    }
+
     [HttpGet("{id}/analysis")]
     public async Task<ActionResult<MatchAnalysisDto>> GetAnalysis(int id)
     {

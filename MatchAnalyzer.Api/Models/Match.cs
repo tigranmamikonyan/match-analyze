@@ -23,6 +23,9 @@ public class Match
     
     public double? Over25Odds { get; set; }
     public double? Under25Odds { get; set; }
+    public string? TournamentId { get; set; }
+    public string? TournamentStageId { get; set; }
+    public string? TournamentName { get; set; }
 }
 
 public class AIPredictionsLog

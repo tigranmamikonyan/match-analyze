@@ -100,7 +100,7 @@ public class MatchParserService
 
         int count = 0;
         var mustBeRemoved = new List<ApiMatch>();
-        
+
         foreach (var match in unparsedMatches)
         {
             try
@@ -117,7 +117,7 @@ public class MatchParserService
                         mustBeRemoved.Add(match);
                         continue;
                     }
-                    
+
                     var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
 
                     match.FirstHalfGoals = home1H + away1H;
@@ -130,10 +130,11 @@ public class MatchParserService
                         var oddsResponse =
                             await _httpClient.GetAsync(
                                 $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={match.MatchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
-            
+
                         if (oddsResponse.IsSuccessStatusCode)
                         {
-                            var (over25Odds, under25Odds) = ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
+                            var (over25Odds, under25Odds) =
+                                ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
                             match.Over25Odds = over25Odds;
                             match.Under25Odds = under25Odds;
                         }
@@ -148,11 +149,12 @@ public class MatchParserService
                 _logger.LogError(ex, "Error processing unparsed match {MatchId}", match.MatchId);
             }
         }
-        
+
         foreach (var match in mustBeRemoved)
         {
             _context.Remove(match);
         }
+
         await _context.SaveChangesAsync();
 
         return count;
@@ -170,7 +172,7 @@ public class MatchParserService
         var oddsResponse =
             await _httpClient.GetAsync(
                 $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={matchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
-            
+
         double? over25Odds = null;
         double? under25Odds = null;
 
@@ -178,7 +180,7 @@ public class MatchParserService
         {
             (over25Odds, under25Odds) = ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
         }
-        
+
         // Parse Teams
         var homeTeamName = ExtractTeamName(content, 1);
         var awayTeamName = ExtractTeamName(content, 2);
@@ -220,7 +222,49 @@ public class MatchParserService
 
         await _context.SaveChangesAsync();
     }
-    
+
+    public async Task<int> UpdateMatchesTournamentsAsync()
+    {
+        var matches = await _context.Matches.Where(x => x.TournamentId == null).ToListAsync();
+
+        var count = 0;
+        
+        foreach (var match in matches)
+        {
+            try
+            {
+                var response =
+                    await _httpClient.GetAsync(
+                        $"https://www.flashscore.com/match/football/team1-{match.HomeTeamId}/team2-{match.AwayTeamId}/?mid={match.MatchId}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+            
+                var content = await response.Content.ReadAsStringAsync();
+            
+                var (tournamentId, tournamentStageId, tournamentName) = ExtractTournamentData(content);
+            
+                match.TournamentId = tournamentId;
+                match.TournamentStageId = tournamentStageId;
+                match.TournamentName = tournamentName;
+            
+                if (count % 100 == 0)
+                    await _context.SaveChangesAsync();
+            
+                count++;
+                _logger.LogInformation("Updated Tournament for Match {MatchId}", match.MatchId);
+                _logger.LogInformation("Updated {count} matches", count);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                await Task.Delay(10000);
+            }
+        }
+        
+        return matches.Count;
+    }
 
     private async Task ParseAndSaveHistoricalMatches(string content, string currentMatchId)
     {
@@ -469,7 +513,7 @@ public class MatchParserService
 
         return await query.OrderBy(m => m.Date).ToListAsync();
     }
-    
+
     public static (double? Over25, double? Under25) ExtractOverUnder25(string rawJsonData)
     {
         double? over25 = null;
@@ -483,7 +527,7 @@ public class MatchParserService
             // 1. Navigate into the core odds array safely using the null-conditional operator (?.)
             JsonArray oddsCategories = root?["data"]?["findOddsByEventId"]?["odds"]?.AsArray();
 
-            if (oddsCategories == null) 
+            if (oddsCategories == null)
                 return (null, null);
 
             // 2. Loop through the categories looking for Full Time Over/Under
@@ -510,7 +554,8 @@ public class MatchParserService
                                 string valueStr = item?["value"]?.ToString();
 
                                 // Safely convert the string to a double (using InvariantCulture so decimals don't break in different regions)
-                                if (double.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue))
+                                if (double.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture,
+                                        out double parsedValue))
                                 {
                                     if (selection == "OVER")
                                     {
@@ -524,6 +569,7 @@ public class MatchParserService
                             }
                         }
                     }
+
                     // We found our data, no need to check the rest of the categories
                     break;
                 }
@@ -535,5 +581,38 @@ public class MatchParserService
         }
 
         return (over25, under25);
+    }
+
+    public static (string tournamentId, string tournamentStageId, string tournamentName)
+        ExtractTournamentData(string html)
+    {
+        // 1. Extract Tournament ID (found inside "stats2_config")
+        // Example match: "stats2_config":{"tournament":"vemsED6e"
+        var tournamentIdMatch = Regex.Match(html, @"\""stats2_config\"":\{.*?\""tournament\"":\""([^\""]+)\""");
+        string tournamentId = tournamentIdMatch.Success ? tournamentIdMatch.Groups[1].Value : "Not found";
+
+        // 2. Extract Tournament Stage ID
+        // Example match: "tournamentStage":"GfEXEp35"
+        var tournamentStageMatch = Regex.Match(html, @"\""tournamentStage\"":\""([^\""]+)\""");
+        string tournamentStage = tournamentStageMatch.Success ? tournamentStageMatch.Groups[1].Value : "Not found";
+
+        // 3. Extract Tournament Name (found inside the "header" -> "tournament" object)
+        // Example match: "header":{..."tournament":{..."tournament":"Svenska Cupen Women - Qualification - Semi-finals"
+        var tournamentNameMatch = Regex.Match(html,
+            @"\""header\"":\{.*?\""tournament\"":\{.*?\""tournament\"":\""([^\""]+)\""", RegexOptions.Singleline);
+        string tournamentName = tournamentNameMatch.Success ? tournamentNameMatch.Groups[1].Value : "Not found";
+
+        // Fallback: If the JSON structure changes, grab the name from the OpenGraph description meta tag
+        if (!tournamentNameMatch.Success)
+        {
+            var fallbackMatch = Regex.Match(html,
+                @"<meta property=\""og:description\"" content=\""(?:.*?: )?([^\""]+)\"">");
+            if (fallbackMatch.Success)
+            {
+                tournamentName = fallbackMatch.Groups[1].Value;
+            }
+        }
+
+        return (tournamentId, tournamentStage, tournamentName);
     }
 }
