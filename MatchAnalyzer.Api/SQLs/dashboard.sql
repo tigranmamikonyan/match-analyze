@@ -1,9 +1,11 @@
 WITH CalculatedBets AS (
     SELECT
+        p."Model",
         m."MatchId",
         p."Date",
         p."HomeTeam",
         p."AwayTeam",
+        m."TournamentName",
         p."AI_Over25_Prob" AS "ModelProbPct",
         p."AI_Over25_Prob" / 100.0 AS "ModelProb",
         m."GoalsCount",
@@ -69,8 +71,8 @@ WITH CalculatedBets AS (
                   ON p."MatchId" = m."MatchId"
     WHERE
         m."Over25Odds" IS NOT NULL
-      AND p."Model" = 'v2_prematch'
-    ORDER BY p."Date" DESC
+      AND p."Model" = 'FinalPredictionXGBoost' or p."Model" = 'BeastModel10'
+    ORDER BY p."Model", p."Date" DESC
 )
 SELECT
     *,
@@ -79,4 +81,16 @@ SELECT
     "BetToWin500" * "ProfitPer1Unit" AS "Profit_BetToWin500",
     "TOPOR" * "ProfitPer1Unit" AS "Profit_TOPOR"
 FROM CalculatedBets
-ORDER BY "Date" DESC;
+ORDER BY "Model","Date" DESC;
+
+select *
+from "Matches" limit 10;
+
+select *
+from "Matches" where "TournamentId" is not null limit 10 ;
+
+select *
+from "AiPredictionsLogs" limit 10;
+
+select *
+from "AiPredictionsLogs" where "Model" = 'FinalPredictionXGBoost';
