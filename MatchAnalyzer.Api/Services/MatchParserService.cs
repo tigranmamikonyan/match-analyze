@@ -223,47 +223,57 @@ public class MatchParserService
         await _context.SaveChangesAsync();
     }
 
+    private static List<int> ignoreMatchIds = []; 
+    
     public async Task<int> UpdateMatchesTournamentsAsync()
     {
-        var matches = await _context.Matches.Where(x => x.TournamentId == null).ToListAsync();
-
-        var count = 0;
-        
-        foreach (var match in matches)
+        while (true)
         {
-            try
+            var matches = await _context.Matches
+                .Where(x => x.TournamentId == null && !ignoreMatchIds.Contains(x.Id))
+                .OrderByDescending(x => x.Date)
+                .Take(1000)
+                .ToListAsync();
+
+            var count = 0;
+
+            foreach (var match in matches)
             {
-                var response =
-                    await _httpClient.GetAsync(
-                        $"https://www.flashscore.com/match/football/team1-{match.HomeTeamId}/team2-{match.AwayTeamId}/?mid={match.MatchId}");
-                if (!response.IsSuccessStatusCode)
+                try
                 {
-                    continue;
+                    var response =
+                        await _httpClient.GetAsync(
+                            $"https://www.flashscore.com/match/{match.MatchId}/#/match-summary");
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        ignoreMatchIds.Add(match.Id);
+                        continue;
+                    }
+
+                    var content = await response.Content.ReadAsStringAsync();
+
+                    var (tournamentId, tournamentStageId, tournamentName) = ExtractTournamentData(content);
+
+                    match.TournamentId = tournamentId;
+                    match.TournamentStageId = tournamentStageId;
+                    match.TournamentName = tournamentName;
+
+
+                    count++;
+                    _logger.LogInformation("Updated Tournament for Match {MatchId}", match.MatchId);
+                    _logger.LogInformation("Updated {count} matches", count);
                 }
-            
-                var content = await response.Content.ReadAsStringAsync();
-            
-                var (tournamentId, tournamentStageId, tournamentName) = ExtractTournamentData(content);
-            
-                match.TournamentId = tournamentId;
-                match.TournamentStageId = tournamentStageId;
-                match.TournamentName = tournamentName;
-            
-                if (count % 100 == 0)
-                    await _context.SaveChangesAsync();
-            
-                count++;
-                _logger.LogInformation("Updated Tournament for Match {MatchId}", match.MatchId);
-                _logger.LogInformation("Updated {count} matches", count);
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    await Task.Delay(10000);
+                }
             }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                await Task.Delay(10000);
-            }
+
+            await _context.SaveChangesAsync();
         }
-        
-        return matches.Count;
+
+        return 0;
     }
 
     private async Task ParseAndSaveHistoricalMatches(string content, string currentMatchId)
