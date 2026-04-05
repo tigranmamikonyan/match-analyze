@@ -35,6 +35,7 @@ public class MatchesController : ControllerBase
         try
         {
             var count = await _parserService.SyncUpcomingMatches(days);
+            var countUpcoming = await _parserService.UpdateMatchesTournamentsAsync();
             return Ok(count);
         }
         catch (Exception ex)

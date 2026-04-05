@@ -64,6 +64,7 @@ public class MatchSyncBackgroundService : BackgroundService
                 var updatedCount = await parserService.UpdateUnparsedMatchesAsync();
                 
                 int count = await parserService.SyncUpcomingMatches(1); 
+                
                 _logger.LogInformation("Background Sync completed. Processed {Count} matches, updated {UpdatedCount} unparsed matches.", count, updatedCount);
             }
             catch (Exception ex)
