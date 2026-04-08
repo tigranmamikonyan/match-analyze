@@ -67,8 +67,9 @@ public class MatchSyncBackgroundService : BackgroundService
                 int count = await parserService.SyncUpcomingMatches(1);
                 int countTournament = await parserService.UpdateMatchesTournamentsAsync();
 
-                RunPythonScript("/var/www/ai_model/.venv/bin/python", "/var/www/ai_model/final_daily_predictor.py");
-                RunPythonScript("/var/www/ai_model/.venv/bin/python", "/var/www/ai_model/predict_today_v3.py");
+                RunPythonScript("/var/www/matchparser/ai_model/.venv/bin/python", "/var/www/matchparser/ai_model/predict_today_v3.py");
+                RunPythonScript("/var/www/matchparser/ai_model/.venv/bin/python", "/var/www/matchparser/ai_model/BeastModel10/final_daily_predictor.py");
+                RunPythonScript("/var/www/matchparser/ai_model/.venv/bin/python", "/var/www/matchparser/ai_model/FinalPredictionXGBoost/final_daily_predictor.py");
                 _logger.LogInformation(
                     "Background Sync completed. Processed {Count} matches, updated {UpdatedCount} unparsed matches.",
                     count, updatedCount);
