@@ -84,7 +84,6 @@ export class DashboardComponent implements OnInit {
     const favorites = Object.keys(this.selectedFavorites).filter(k => this.selectedFavorites[k]);
     const model = this.route.snapshot.paramMap.get('id');
 
-    alert(model);
     // Construct request
     const request = {
       from: this.filter.from,
