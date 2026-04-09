@@ -6,6 +6,7 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component';
 const routes: Routes = [
   { path: '', component: DashboardComponent },
   { path: 'admin', component: AdminComponent },
+  { path: 'dashboard/:id', component: DashboardComponent },
   { path: '**', redirectTo: '' }
 ];
 

@@ -488,9 +488,9 @@ public class MatchParserService
 
         if (!string.IsNullOrWhiteSpace(request.Model))
         {
-            var model = request.Model.ToLower();
+            var model = request.Model.ToLower().Trim();
             
-            var predictedMatchIds = await _context.AiPredictionsLogs.Where(x => x.Model == model)
+            var predictedMatchIds = await _context.AiPredictionsLogs.Where(x => x.Model.ToLower().Trim() == model)
                 .Select(x => x.MatchId)
                 .ToListAsync();
             

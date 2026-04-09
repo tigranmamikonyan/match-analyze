@@ -4,7 +4,7 @@ import { MatchService } from '../../services/match.service';
 import { Match } from '../../models/match';
 import { MatchCardComponent, ThresholdConfig } from '../../components/match-card/match-card.component';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-dashboard',
@@ -19,7 +19,7 @@ export class DashboardComponent implements OnInit {
 
 
   // Filter State
-  filter = {
+  filter: any = {
     from: new Date().toISOString().split('T')[0],
     to: null,
     team: '',
@@ -43,7 +43,7 @@ export class DashboardComponent implements OnInit {
     { label: 'FH 1.5', value: 'fh1.5' }
   ];
 
-  constructor(private matchService: MatchService) {
+  constructor(private matchService: MatchService, private route: ActivatedRoute) {
     this.loadMatches();
   }
 
@@ -82,14 +82,17 @@ export class DashboardComponent implements OnInit {
     this.isLoading = true;
 
     const favorites = Object.keys(this.selectedFavorites).filter(k => this.selectedFavorites[k]);
+    const model = this.route.snapshot.paramMap.get('id');
 
+    alert(model);
     // Construct request
     const request = {
       from: this.filter.from,
       to: this.filter.to,
       team: this.filter.team,
       conditions: this.filter.conditions,
-      favoriteFilters: favorites
+      favoriteFilters: favorites,
+      model: model
     };
 
     console.log('Searching matches:', request);
