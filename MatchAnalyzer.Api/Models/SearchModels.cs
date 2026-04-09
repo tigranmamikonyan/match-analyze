@@ -6,6 +6,7 @@ public class SearchRequest
     public DateTime? To { get; set; }
     public string? Team { get; set; }
     public List<FilterCondition> Conditions { get; set; } = new();
+    public string? Model { get; set; }
     public List<string>? FavoriteFilters { get; set; } // "0.5", "1.5", "fh0.5", "fh1.5"
 }
 

@@ -486,6 +486,16 @@ public class MatchParserService
     {
         var query = _context.Matches.AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(request.Model))
+        {
+            var model = request.Model.ToLower();
+            
+            var predictedMatchIds = await _context.AiPredictionsLogs.Where(x => x.Model == model)
+                .Select(x => x.MatchId)
+                .ToListAsync();
+            
+            query = query.Where(m => predictedMatchIds.Contains(m.MatchId));
+        }
         // Date Filter
         if (request.From.HasValue)
             query = query.Where(m => m.Date >= request.From.Value.ToUniversalTime());
