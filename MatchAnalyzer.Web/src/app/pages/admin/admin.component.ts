@@ -32,6 +32,21 @@ export class AdminComponent {
         });
     }
 
+    enable(): void {
+        this.isSyncing = true;
+        this.matchService.enable().subscribe({
+            next: () => {
+                alert(`Enabled`);
+                this.isSyncing = false;
+            },
+            error: (err) => {
+                console.error(err);
+                alert('Enable failed');
+                this.isSyncing = false;
+            }
+        });
+    }
+
     syncUnparsed(): void {
         this.isSyncing = true;
         this.matchService.syncUnparsedMatches().subscribe({

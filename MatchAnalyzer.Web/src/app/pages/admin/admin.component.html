@@ -24,5 +24,13 @@
                 {{ isSyncing ? 'Processing...' : 'Sync Data' }}
             </button>
         </div>
+
+        <div class="action-card">
+            <h2>Enable</h2>
+            <p>Enables Showing matches when model filter not used</p>
+            <button class="btn-sync secondary" (click)="enable()" [disabled]="isSyncing">
+                {{ isSyncing ? 'Processing...' : 'Enable' }}
+            </button>
+        </div>
     </div>
 </div>

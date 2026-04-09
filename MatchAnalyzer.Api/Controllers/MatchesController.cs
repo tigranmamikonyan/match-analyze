@@ -29,6 +29,13 @@ public class MatchesController : ControllerBase
         return Ok(matches);
     }
 
+    [HttpPost("enable")]
+    public async Task<ActionResult> EnableMatchSync()
+    {
+        MatchParserService.IsEnabled = true;
+        return Ok();
+    }
+
     [HttpPost("sync")]
     public async Task<ActionResult<int>> SyncMatches([FromQuery] int days = 1)
     {

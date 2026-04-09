@@ -52,7 +52,7 @@ public class MatchSyncBackgroundService : BackgroundService
     private async Task DoWorkAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Match Sync Background Service is working.");
-
+        MatchParserService.IsEnabled = false;
         using (var scope = _serviceProvider.CreateScope())
         {
             var parserService = scope.ServiceProvider.GetRequiredService<MatchParserService>();

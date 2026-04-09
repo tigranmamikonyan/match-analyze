@@ -13,6 +13,7 @@ public class MatchParserService
     private readonly AppDbContext _context;
     private readonly HttpClient _httpClient;
     private readonly ILogger<MatchParserService> _logger;
+    public static bool IsEnabled = false;
 
     public MatchParserService(AppDbContext context, HttpClient httpClient, ILogger<MatchParserService> logger)
     {
@@ -483,7 +484,7 @@ public class MatchParserService
     }
 
     public async Task<List<ApiMatch>> SearchMatchesAsync(SearchRequest request)
-    {
+    {   
         var query = _context.Matches.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Model))
@@ -495,6 +496,13 @@ public class MatchParserService
                 .ToListAsync();
             
             query = query.Where(m => predictedMatchIds.Contains(m.MatchId));
+        }
+        else
+        {
+            if (!IsEnabled)
+            {
+                return [];
+            }
         }
         // Date Filter
         if (request.From.HasValue)
