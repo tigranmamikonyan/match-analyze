@@ -32,7 +32,7 @@ public class MatchesController : ControllerBase
     [HttpPost("enable")]
     public async Task<ActionResult> EnableMatchSync()
     {
-        MatchParserService.IsEnabled = true;
+        MatchParserService.IsEnabled = !MatchParserService.IsEnabled;
         return Ok();
     }
 
