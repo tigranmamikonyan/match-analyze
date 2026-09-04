@@ -360,6 +360,11 @@ public class MatchParserService
     {
         try
         {
+            if (!data.Contains("IK÷Goal") && !data.Contains("IK÷Penalty"))
+            {
+                return [];
+            }
+            
             string[] events = data.Split('~');
             var minutes = new List<string>();
 
