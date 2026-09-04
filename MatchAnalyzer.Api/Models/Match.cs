@@ -26,6 +26,7 @@ public class Match
     public string? TournamentId { get; set; }
     public string? TournamentStageId { get; set; }
     public string? TournamentName { get; set; }
+    public string[]? GoalMinutes { get; set; }
 }
 
 public class AIPredictionsLog

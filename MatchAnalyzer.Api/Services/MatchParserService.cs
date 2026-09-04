@@ -5,6 +5,7 @@ using MatchAnalyzer.Api.Data;
 using MatchAnalyzer.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using ApiMatch = MatchAnalyzer.Api.Models.Match;
+using Match = System.Text.RegularExpressions.Match;
 
 namespace MatchAnalyzer.Api.Services;
 
@@ -120,11 +121,13 @@ public class MatchParserService
                     }
 
                     var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
+                    var goalMinutes = ParseGoalMinutes(content);
 
                     match.FirstHalfGoals = home1H + away1H;
                     match.GoalsCount = homeTotal + awayTotal;
                     match.Score = $"{homeTotal}:{awayTotal}";
                     match.IsParsed = true;
+                    match.GoalMinutes = goalMinutes;
 
                     if (match.Over25Odds is null || match.Under25Odds is null)
                     {
@@ -352,6 +355,36 @@ public class MatchParserService
             matchIds.Add(hMatchId);
         }
     }
+    
+    public static string[]? ParseGoalMinutes(string data)
+    {
+        try
+        {
+            string[] events = data.Split('~');
+            var minutes = new List<string>();
+
+            foreach (string ev in events)
+            {
+                // Check for valid goal or scored penalty (ignoring disallowed goals)
+                if (ev.Contains("IK÷Goal") || ev.Contains("IK÷Penalty"))
+                {
+                    // Extract just the number/stoppage time after IB÷ and before the '
+                    Match timeMatch = Regex.Match(ev, @"IB÷([\d\+]+)'");
+                
+                    if (timeMatch.Success)
+                    {
+                        minutes.Add(timeMatch.Groups[1].Value);
+                    }
+                }
+            }
+
+            return minutes.ToArray();
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
+    }
 
     public static (int homeTotal, int awayTotal, int home1H, int away1H) GetScoresFromPeriodTags(string rawData)
     {
@@ -484,17 +517,17 @@ public class MatchParserService
     }
 
     public async Task<List<ApiMatch>> SearchMatchesAsync(SearchRequest request)
-    {   
+    {
         var query = _context.Matches.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Model))
         {
             var model = request.Model.ToLower().Trim();
-            
+
             var predictedMatchIds = await _context.AiPredictionsLogs.Where(x => x.Model.ToLower().Trim() == model)
                 .Select(x => x.MatchId)
                 .ToListAsync();
-            
+
             query = query.Where(m => predictedMatchIds.Contains(m.MatchId));
         }
         else
@@ -504,6 +537,7 @@ public class MatchParserService
                 return [];
             }
         }
+
         // Date Filter
         if (request.From.HasValue)
             query = query.Where(m => m.Date >= request.From.Value.ToUniversalTime());
@@ -536,6 +570,69 @@ public class MatchParserService
         }
 
         return await query.OrderBy(m => m.Date).ToListAsync();
+    }
+
+    static (double? homeCoef, double? awayCoef, double? drawCoef) ExtractResultCoefs(string rawJsonData,
+        string homeId, string awayId)
+    {
+        double? homeCoef = null;
+        double? awayCoef = null;
+        double? drawCoef = null;
+
+        try
+        {
+            // Parse the raw JSON string
+            JsonNode root = JsonNode.Parse(rawJsonData);
+
+            // 1. Navigate into the core odds array safely using the null-conditional operator (?.)
+            JsonArray oddsCategories = root?["data"]?["findOddsByEventId"]?["odds"]?.AsArray();
+
+            if (oddsCategories == null)
+                return (null, null, null);
+
+            // 2. Loop through the categories looking for Full Time Over/Under
+            foreach (JsonNode category in oddsCategories)
+            {
+                string bettingType = category?["bettingType"]?.ToString();
+                string bettingScope = category?["bettingScope"]?.ToString();
+
+                if (bettingType == "HOME_DRAW_AWAY" && bettingScope == "FULL_TIME")
+                {
+                    JsonArray items = category?["odds"]?.AsArray();
+
+                    if (items != null)
+                    {
+                        // 3. We found the right category! Now check the specific lines.
+                        foreach (JsonNode item in items)
+                        {
+                            if (item?["eventParticipantId"]?.ToString() == homeId)
+                            {
+                                homeCoef = double.Parse(item?["value"]?.ToString(), CultureInfo.InvariantCulture);
+                            }
+
+                            if (item?["eventParticipantId"]?.ToString() == awayId)
+                            {
+                                awayCoef = double.Parse(item?["value"]?.ToString(), CultureInfo.InvariantCulture);
+                            }
+
+                            if (item?["eventParticipantId"] == null)
+                            {
+                                drawCoef = double.Parse(item?["value"]?.ToString(), CultureInfo.InvariantCulture);
+                            }
+                        }
+                    }
+
+                    // We found our data, no need to check the rest of the categories
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Error parsing odds JSON: {ex.Message}");
+        }
+
+        return (homeCoef, awayCoef, drawCoef);
     }
 
     public static (double? Over25, double? Under25) ExtractOverUnder25(string rawJsonData)
