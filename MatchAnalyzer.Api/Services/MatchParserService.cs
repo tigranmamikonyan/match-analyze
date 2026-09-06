@@ -121,13 +121,18 @@ public class MatchParserService
                     }
 
                     var (homeTotal, awayTotal, home1H, away1H) = GetScoresFromPeriodTags(content);
-                    var goalMinutes = ParseGoalMinutes(content);
+                    var homeAwayGoalMinutes = ParseGoalMinutes(content);
 
                     match.FirstHalfGoals = home1H + away1H;
                     match.GoalsCount = homeTotal + awayTotal;
                     match.Score = $"{homeTotal}:{awayTotal}";
                     match.IsParsed = true;
-                    match.GoalMinutes = goalMinutes;
+
+                    if (homeAwayGoalMinutes.HasValue)
+                    {
+                        match.HomeTeamGoals = homeAwayGoalMinutes.Value.HomeGoals;
+                        match.AwayTeamGoals = homeAwayGoalMinutes.Value.AwayGoals;
+                    }
 
                     if (match.Over25Odds is null || match.Under25Odds is null)
                     {
@@ -355,35 +360,49 @@ public class MatchParserService
             matchIds.Add(hMatchId);
         }
     }
-    
-    public static string[]? ParseGoalMinutes(string data)
+
+    public static (string[] HomeGoals, string[] AwayGoals)? ParseGoalMinutes(string data)
     {
         try
         {
             if (!data.Contains("IK÷Goal") && !data.Contains("IK÷Penalty"))
             {
-                return [];
+                return ([], []);
             }
-            
+
             string[] events = data.Split('~');
-            var minutes = new List<string>();
+
+            List<string> homeList = new List<string>();
+            List<string> awayList = new List<string>();
 
             foreach (string ev in events)
             {
-                // Check for valid goal or scored penalty (ignoring disallowed goals)
+                // Check for valid goal or scored penalty
                 if (ev.Contains("IK÷Goal") || ev.Contains("IK÷Penalty"))
                 {
-                    // Extract just the number/stoppage time after IB÷ and before the '
+                    // Extract minute (IB÷) and Team ID (IA÷)
                     Match timeMatch = Regex.Match(ev, @"IB÷([\d\+]+)'");
-                
-                    if (timeMatch.Success)
+                    Match teamMatch = Regex.Match(ev, @"IA÷(\d)");
+
+                    if (timeMatch.Success && teamMatch.Success)
                     {
-                        minutes.Add(timeMatch.Groups[1].Value);
+                        string minute = timeMatch.Groups[1].Value;
+                        string teamId = teamMatch.Groups[1].Value;
+
+                        if (teamId == "1") // Team 1 is Home
+                        {
+                            homeList.Add(minute);
+                        }
+                        else if (teamId == "2") // Team 2 is Away
+                        {
+                            awayList.Add(minute);
+                        }
                     }
                 }
             }
 
-            return minutes.ToArray();
+            // Convert lists to arrays and return them as a tuple
+            return (homeList.ToArray(), awayList.ToArray());
         }
         catch (Exception e)
         {
