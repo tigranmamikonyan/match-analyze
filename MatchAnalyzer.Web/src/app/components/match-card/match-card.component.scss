@@ -43,6 +43,25 @@
     color: rgba(255, 255, 255, 0.6);
     margin-bottom: 1rem;
 
+    .meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+
+      .tournament {
+        color: #a5b4fc; // Indigo-300
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+    }
+
     .actions {
       display: flex;
       align-items: center;
@@ -145,6 +164,46 @@
           background: rgba(255, 255, 255, 0.1);
           padding: 2px 6px;
           border-radius: 4px;
+        }
+      }
+    }
+  }
+
+  .odds-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+
+    .odd {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 72px;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+
+      .odd-label {
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+      }
+
+      .odd-value {
+        color: #fff;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      &.favorite {
+        border-color: rgba(251, 191, 36, 0.5);
+        background: rgba(251, 191, 36, 0.12);
+
+        .odd-value {
+          color: #fbbf24; // Amber-400
         }
       }
     }

@@ -1,6 +1,9 @@
 <div class="match-card" [class.expanded]="isExpanded" (click)="toggleAnalysis()">
   <div class="card-header">
-    <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
+    <div class="meta">
+      <span class="tournament" *ngIf="match.tournamentName" [title]="match.tournamentName">{{ match.tournamentName }}</span>
+      <span class="date">{{ match.date | date:'MMM d, y, h:mm a' }}</span>
+    </div>
     <div class="actions">
       <div class="favorites">
         <button class="fav-icon" [class.active]="match.isFavorite05" (click)="toggleFavorite($event, '0.5')"
@@ -41,6 +44,22 @@
 
     <div class="team away">
       <div class="name">{{ match.awayTeam }}</div>
+    </div>
+  </div>
+
+  <!-- Match Result Odds (1X2) -->
+  <div class="odds-row" *ngIf="match.homeOdds != null || match.drawOdds != null || match.awayOdds != null">
+    <div class="odd" [class.favorite]="favoriteOutcome === '1'" title="Home win">
+      <span class="odd-label">1</span>
+      <span class="odd-value">{{ match.homeOdds != null ? (match.homeOdds | number:'1.2-2') : '-' }}</span>
+    </div>
+    <div class="odd" [class.favorite]="favoriteOutcome === 'X'" title="Draw">
+      <span class="odd-label">X</span>
+      <span class="odd-value">{{ match.drawOdds != null ? (match.drawOdds | number:'1.2-2') : '-' }}</span>
+    </div>
+    <div class="odd" [class.favorite]="favoriteOutcome === '2'" title="Away win">
+      <span class="odd-label">2</span>
+      <span class="odd-value">{{ match.awayOdds != null ? (match.awayOdds | number:'1.2-2') : '-' }}</span>
     </div>
   </div>
 

@@ -267,7 +267,7 @@ public class MatchParserService
                     {
                         var homeOddId = homeMatch.Groups[2].Value;
                         var awayOddId = awayMatch.Groups[2].Value;
-                        var matchResultOdds =  ExtractResultCoefs(homeOddId, awayOddId, oddsContent);
+                        var matchResultOdds =  ExtractResultCoefs(oddsContent, homeOddId, awayOddId);
                         
                         match.HomeOdds = matchResultOdds.homeCoef;
                         match.AwayOdds = matchResultOdds.awayCoef;

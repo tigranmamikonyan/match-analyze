@@ -12,4 +12,8 @@ export interface Match {
   isFavorite15: boolean;
   isFavoriteFH05: boolean;
   isFavoriteFH15: boolean;
+  tournamentName?: string;
+  homeOdds?: number;
+  drawOdds?: number;
+  awayOdds?: number;
 }

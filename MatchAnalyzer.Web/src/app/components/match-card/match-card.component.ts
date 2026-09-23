@@ -54,6 +54,18 @@ export class MatchCardComponent {
     }
   }
 
+  // Outcome with the lowest odds (bookmaker favorite)
+  get favoriteOutcome(): '1' | 'X' | '2' | null {
+    const odds: ['1' | 'X' | '2', number | undefined][] = [
+      ['1', this.match.homeOdds],
+      ['X', this.match.drawOdds],
+      ['2', this.match.awayOdds]
+    ];
+    const available = odds.filter(([, v]) => v != null && v > 0) as ['1' | 'X' | '2', number][];
+    if (!available.length) return null;
+    return available.reduce((min, cur) => cur[1] < min[1] ? cur : min)[0];
+  }
+
   get isLive(): boolean {
     return false;
   }
