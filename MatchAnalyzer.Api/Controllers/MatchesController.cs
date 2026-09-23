@@ -42,7 +42,7 @@ public class MatchesController : ControllerBase
         try
         {
             var count = await _parserService.SyncUpcomingMatches(days);
-            var countUpcoming = await _parserService.UpdateMatchesTournamentsAsync();
+            var countUpcoming = await _parserService.UpdateMatchesTournamentsAndOddsAsync();
             return Ok(count);
         }
         catch (Exception ex)
@@ -72,7 +72,7 @@ public class MatchesController : ControllerBase
     {
         try
         {
-            var count = await _parserService.UpdateMatchesTournamentsAsync();
+            var count = await _parserService.UpdateMatchesTournamentsAndOddsAsync();
             return Ok(count);
         }
         catch (Exception ex)

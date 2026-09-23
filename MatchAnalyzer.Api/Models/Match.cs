@@ -28,6 +28,9 @@ public class Match
     public string? TournamentName { get; set; }
     public string[]? HomeTeamGoals { get; set; }
     public string[]? AwayTeamGoals { get; set; }
+    public double? HomeOdds { get; set; }
+    public double? AwayOdds { get; set; }
+    public double? DrawOdds { get; set; }
 }
 
 public class AIPredictionsLog

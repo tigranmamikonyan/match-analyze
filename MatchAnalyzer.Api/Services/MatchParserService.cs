@@ -178,18 +178,6 @@ public class MatchParserService
         if (!response.IsSuccessStatusCode) return;
         var content = await response.Content.ReadAsStringAsync();
 
-        var oddsResponse =
-            await _httpClient.GetAsync(
-                $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={matchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
-
-        double? over25Odds = null;
-        double? under25Odds = null;
-
-        if (oddsResponse.IsSuccessStatusCode)
-        {
-            (over25Odds, under25Odds) = ExtractOverUnder25(await oddsResponse.Content.ReadAsStringAsync());
-        }
-
         // Parse Teams
         var homeTeamName = ExtractTeamName(content, 1);
         var awayTeamName = ExtractTeamName(content, 2);
@@ -209,8 +197,6 @@ public class MatchParserService
                 HomeTeamId = homeTeamId,
                 AwayTeamId = awayTeamId,
                 Date = scheduledDate?.ToUniversalTime(),
-                Over25Odds = over25Odds,
-                Under25Odds = under25Odds
             };
             _context.Matches.Add(match);
         }
@@ -234,7 +220,7 @@ public class MatchParserService
 
     private static List<int> ignoreMatchIds = [];
 
-    public async Task<int> UpdateMatchesTournamentsAsync()
+    public async Task<int> UpdateMatchesTournamentsAndOddsAsync()
     {
         var matches = await _context.Matches
             .Where(x => x.TournamentId == null && !ignoreMatchIds.Contains(x.Id))
@@ -264,6 +250,35 @@ public class MatchParserService
                 match.TournamentStageId = tournamentStageId;
                 match.TournamentName = tournamentName;
 
+                var oddsResponse =
+                    await _httpClient.GetAsync(
+                        $"https://global.ds.lsapp.eu/odds/pq_graphql?_hash=oce&eventId={match.MatchId}&projectId=2&geoIpCode=AM&geoIpSubdivisionCode=AMER");
+
+                double? over25Odds = null;
+                double? under25Odds = null;
+
+                if (oddsResponse.IsSuccessStatusCode)
+                {
+                    var oddsContent = await oddsResponse.Content.ReadAsStringAsync();
+                    
+                    Match homeMatch = Regex.Match(content, @"""home"":\[{""id"":""([^""]+)"",""eventParticipantId"":""([^""]+)""");
+                    Match awayMatch = Regex.Match(content, @"""away"":\[{""id"":""([^""]+)"",""eventParticipantId"":""([^""]+)""");
+                    if (homeMatch.Success && awayMatch.Success)
+                    {
+                        var homeOddId = homeMatch.Groups[2].Value;
+                        var awayOddId = awayMatch.Groups[2].Value;
+                        var matchResultOdds =  ExtractResultCoefs(homeOddId, awayOddId, oddsContent);
+                        
+                        match.HomeOdds = matchResultOdds.homeCoef;
+                        match.AwayOdds = matchResultOdds.awayCoef;
+                        match.DrawOdds = matchResultOdds.drawCoef;
+                    }
+                    
+                    (over25Odds, under25Odds) = ExtractOverUnder25(oddsContent);
+                }
+                
+                match.Over25Odds = over25Odds;
+                match.Under25Odds = under25Odds;
 
                 count++;
                 _logger.LogInformation("Updated Tournament for Match {MatchId}", match.MatchId);
